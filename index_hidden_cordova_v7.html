@@ -1700,19 +1700,37 @@
                             setActiveSession(null);
                         }
                         setLoading(false);
+                    }, err => {
+                        console.error('Error loading active session:', err);
+                        showToast('Fehler beim Laden der aktiven Sitzung');
+                        setLoading(false);
                     });
 
                 const startOfMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
                 const endOfMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0, 23, 59, 59);
 
+                // Simple query without composite index requirement
                 const unsubEntries = db.collection('timeTracking')
                     .where('userId', '==', user.uid)
-                    .where('clockIn', '>=', firebase.firestore.Timestamp.fromDate(startOfMonth))
-                    .where('clockIn', '<=', firebase.firestore.Timestamp.fromDate(endOfMonth))
-                    .orderBy('clockIn', 'desc')
                     .onSnapshot(snap => {
-                        const entries = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        setTimeEntries(entries);
+                        // Filter by month and sort in memory
+                        const allEntries = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        const filteredEntries = allEntries
+                            .filter(entry => {
+                                if (!entry.clockIn) return false;
+                                const entryDate = entry.clockIn.toDate ? entry.clockIn.toDate() : new Date(entry.clockIn);
+                                return entryDate >= startOfMonth && entryDate <= endOfMonth;
+                            })
+                            .sort((a, b) => {
+                                // Sort by clockIn descending (newest first)
+                                const dateA = a.clockIn?.toMillis ? a.clockIn.toMillis() : 0;
+                                const dateB = b.clockIn?.toMillis ? b.clockIn.toMillis() : 0;
+                                return dateB - dateA;
+                            });
+                        setTimeEntries(filteredEntries);
+                    }, err => {
+                        console.error('Error loading time entries:', err);
+                        showToast('Fehler beim Laden der Historie');
                     });
 
                 return () => { unsubActive(); unsubEntries(); };
@@ -1721,7 +1739,8 @@
             const clockIn = async () => {
                 if (activeSession || !user) return;
                 try {
-                    await db.collection('timeTracking').add({
+                    console.log('Attempting to clock in for user:', user.uid);
+                    const docRef = await db.collection('timeTracking').add({
                         userId: user.uid,
                         userName: user.displayName || 'Unbekannt',
                         clockIn: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1730,16 +1749,18 @@
                         notes: '',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
+                    console.log('Clock in successful, doc ID:', docRef.id);
                     showToast('✓ Eingestempelt');
                 } catch (err) {
-                    showToast('Fehler beim Einstempeln');
-                    console.error(err);
+                    console.error('Clock in error:', err);
+                    showToast('Fehler beim Einstempeln: ' + err.message);
                 }
             };
 
             const clockOut = async () => {
                 if (!activeSession || !user) return;
                 try {
+                    console.log('Attempting to clock out, session ID:', activeSession.id);
                     const clockOutTime = firebase.firestore.Timestamp.now();
                     const clockInTime = activeSession.clockIn;
                     const durationMs = clockOutTime.toMillis() - clockInTime.toMillis();
@@ -1749,10 +1770,11 @@
                         clockOut: clockOutTime,
                         duration: parseFloat(durationHours)
                     });
+                    console.log('Clock out successful');
                     showToast(`✓ Ausgestempelt (${durationHours}h)`);
                 } catch (err) {
-                    showToast('Fehler beim Ausstempeln');
-                    console.error(err);
+                    console.error('Clock out error:', err);
+                    showToast('Fehler beim Ausstempeln: ' + err.message);
                 }
             };
 
