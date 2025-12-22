@@ -1778,7 +1778,7 @@
             const getElapsedTime = () => {
                 if (!activeSession || !activeSession.clockIn) return '0:00:00';
                 const start = activeSession.clockIn.toDate ? activeSession.clockIn.toDate() : new Date(activeSession.clockIn);
-                const diff = currentTime - start;
+                const diff = Math.max(0, currentTime - start); // Ensure non-negative
                 const hours = Math.floor(diff / (1000 * 60 * 60));
                 const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((diff % (1000 * 60)) / 1000);
@@ -1902,7 +1902,7 @@
                                                     </div>
                                                     {entry.duration && (
                                                         <div className="text-sm font-bold text-green-600">
-                                                            {formatDuration(entry.duration)}h
+                                                            {formatDuration(entry.duration)}
                                                         </div>
                                                     )}
                                                 </div>
