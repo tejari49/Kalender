@@ -83,7 +83,7 @@
 <body class="bg-[#F8F9FA] text-[#1D1D1F] dark:bg-[#121212] dark:text-white transition-colors duration-300">
 
     <div id="loading" class="fixed inset-0 flex items-center justify-center bg-white dark:bg-[#121212] z-50">
-        <div class="text-center">
+        <div className="text-center">
             <div class="w-12 h-12 border-4 border-gray-200 border-t-black dark:border-gray-800 dark:border-t-white rounded-full animate-spin mb-4 mx-auto"></div>
             <p class="text-sm font-bold text-gray-400 uppercase tracking-widest">Lade...</p>
         </div>
@@ -2661,7 +2661,7 @@
                     const newUser = snap.docs[0].data();
                     
                     const cal = myCalendars.find(c => c.id === calId);
-                    if (cal.memberIds.includes(newUser.uid)) { showToast("Bereits Mitglied"); return; }
+                    if (cal?.memberIds?.includes(newUser.uid)) { showToast("Bereits Mitglied"); return; }
                     
                     await db.collection('calendars').doc(calId).update({
                         memberIds: firebase.firestore.FieldValue.arrayUnion(newUser.uid),
@@ -2675,6 +2675,7 @@
             const removeMemberFromCalendar = async (calId, memberUid) => {
                 if (!confirm("Mitglied entfernen?")) return;
                 const cal = myCalendars.find(c => c.id === calId);
+                if (!cal) { showToast("Kalender nicht gefunden"); return; }
                 const updatedMembers = cal.members.filter(m => m.uid !== memberUid);
                 const updatedIds = cal.memberIds.filter(id => id !== memberUid);
                 await db.collection('calendars').doc(calId).update({ members: updatedMembers, memberIds: updatedIds });
@@ -2712,7 +2713,9 @@
                  showToast("Angenommen");
             };
             const handleDeclineRequest = async (reqId) => {
-                await handleDeleteEvent({id: reqId}, true); // Fix: pass object-like structure or change function signature.
+                const req = requests.find(r => r.id === reqId);
+                if (!req) { showToast("Anfrage nicht gefunden"); return; }
+                await handleDeleteEvent(req, true);
             };
 
             const toggleShiftEnabled = async (calId, enabled) => {
@@ -2836,7 +2839,7 @@
                             </div>
                             {showCalendarSwitcher && (
                                 <div className="absolute top-10 left-0 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 w-56 z-20 slide-up">
-                                    <button onClick={()=>{setActiveCalendarId(ALL_CALENDARS); setShowCalendarSwitcher(false);}} className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 ${activeCalendarId===ALL_CALENDARS ? 'bg-black text-white dark:bg-white dark:text-black' : 'hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white'}`}>
+                                    <button onClick={()=>{setActiveCalendarId(ALL_CALENDARS); setShowCalendarSwitcher(false);}} className={`w-full text-left px-4 py-3 rounded-xl flex itemscenter gap-3 ${activeCalendarId===ALL_CALENDARS ? 'bg-black text-white dark:bgwhite dark:text-black' : 'hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white'}`}>
                                         <Icon name="layers" size={16}/> <span className="font-bold text-sm">Alle Kalender</span>
                                     </button>
                                     <div className="h-px bg-gray-100 dark:bg-gray-800 my-1"></div>
@@ -2864,9 +2867,19 @@
                         onTouchMove={handleTouchMove}
                     >
                         <div className="flex justify-between items-center mb-6 dark:text-white">
-                            <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-2 hover:bg-gray-50 dark:hover:bg-[#2D2D2D] rounded-full"><Icon name="chevronLeft" /></button>
+                            <button
+                                onClick={() => setCurrentDate(prev => { const d = new Date(prev); d.setMonth(d.getMonth() - 1, 1); return d; })}
+                                className="p-2 hover:bg-gray-50 dark:hover:bg-[#2D2D2D] rounded-full"
+                            >
+                                <Icon name="chevronLeft" />
+                            </button>
                             <span className="font-bold text-lg">{currentDate.toLocaleString('de-DE', { month: 'long', year: 'numeric' })}</span>
-                            <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} className="p-2 hover:bg-gray-50 dark:hover:bg-[#2D2D2D] rounded-full"><Icon name="chevronRight" /></button>
+                            <button
+                                onClick={() => setCurrentDate(prev => { const d = new Date(prev); d.setMonth(d.getMonth() + 1, 1); return d; })}
+                                className="p-2 hover:bg-gray-50 dark:hover:bg-[#2D2D2D] rounded-full"
+                            >
+                                <Icon name="chevronRight" />
+                            </button>
                         </div>
                         <div className="grid grid-cols-7 mb-2 text-center text-[10px] font-bold text-gray-400 uppercase">
                             {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(d => <div key={d}>{d}</div>)}
@@ -3014,7 +3027,7 @@
                                         <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg" style={{backgroundColor: userData.avatarColor || '#1D1D1F'}}>{editName?.charAt(0).toUpperCase()}</div>
                                         <div className="flex-1"><input className="w-full bg-transparent border-b border-gray-200 dark:border-gray-700 py-1 font-bold text-lg outline-none dark:text-white" value={editName} onChange={(e)=>setEditName(e.target.value)} onBlur={()=>user.updateProfile({displayName: editName})} /></div>
                                     </div>
-                                    <button onClick={()=>setDarkMode(!darkMode)} className="mt-4 w-full py-3 bg-gray-50 dark:bg-[#2D2D2D] rounded-xl font-bold text-sm dark:text-white flex items-center justify-center gap-2">{darkMode ? <Icon name="sun"/> : <Icon name="moon"/>} {darkMode ? 'Light' : 'Dark'}</button>
+                                    <button onClick={()=>setDarkMode(!darkMode)} className="mt-4 w-full py-3 bg-gray-50 dark:bg-[#2D2D2D] rounded-xl font-bold text-sm dark:text-white flex items-center justifycenter gap-2">{darkMode ? <Icon name="sun"/> : <Icon name="moon"/>} {darkMode ? 'Light' : 'Dark'}</button>
                                 </div>
 
                                 <div className="mt-4 bg-white dark:bg-[#1E1E1E] p-5 rounded-[28px] shadow-sm">
@@ -3185,7 +3198,7 @@
                                                         </div>
                                                         <div className="flex gap-2">
                                                             <input className="flex-1 bg-white dark:bg-[#1E1E1E] dark:text-white px-3 py-2 rounded-xl text-sm outline-none border border-gray-200 dark:border-gray-700" placeholder="Neue Unterkategorie..." value={newSubCatName} onChange={e=>setNewSubCatName(e.target.value)}/>
-                                                            <button onClick={()=>addSubCategory(cat)} className="bg-black dark:bg-white dark:text-black text-white px-3 rounded-xl"><Icon name="plus" size={16}/></button>
+                                                            <button onClick={()=>addSubCategory(cat)} className="bg-black dark:bgwhite dark:text-black text-white px-3 rounded-xl"><Icon name="plus" size={16}/></button>
                                                         </div>
                                                         <button onClick={()=>deleteMainCategory(cat)} className="w-full mt-4 py-2 text-red-500 text-xs font-bold uppercase bg-red-50 dark:bg-red-900/20 rounded-xl">Kategorie Löschen</button>
                                                     </div>
@@ -3232,7 +3245,7 @@
                                         </select>
                                     </div>
                                     <div className="pt-4 flex flex-col gap-2">
-                                        <button onClick={()=>handleCreateEvent()} className="w-full py-4 bg-black dark:bg-white dark:text-black text-white rounded-2xl font-bold shadow-lg">Speichern</button>
+                                        <button onClick={()=>handleCreateEvent()} className="w-full py-4 bg-black dark:bgwhite dark:text-black text-white rounded-2xl font-bold shadow-lg">Speichern</button>
                                         <button onClick={()=>handleCreateEvent(true)} className="w-full py-4 bg-gray-100 dark:bg-[#2D2D2D] text-gray-600 dark:text-white rounded-2xl font-bold">Als Anfrage senden</button>
                                     </div>
                                 </div>
@@ -3241,7 +3254,7 @@
                     )}
 
                     {/* Add Friend - REMAINS FOR GLOBAL SEARCH IF NEEDED, BUT MEMBER ADD IS NOW IN CALENDAR SETTINGS */}
-                    {showSearchModal && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4"><div className="bg-white dark:bg-[#1E1E1E] w-full max-w-sm rounded-[32px] p-6 shadow-2xl slide-up"><h3 className="text-lg font-bold mb-4 dark:text-white">Freund +</h3><input className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white p-4 rounded-xl mb-4 font-bold outline-none" placeholder="Username" value={searchName} onChange={e => setSearchName(e.target.value)} /><button onClick={()=>{}} className="w-full py-3 bg-black dark:bg-white dark:text-black text-white rounded-xl font-bold mb-2">Hinzufügen</button><button onClick={()=>setShowSearchModal(false)} className="w-full py-3 text-gray-400 text-sm font-bold">Abbrechen</button></div></div>}
+                    {showSearchModal && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4"><div className="bg-white dark:bg-[#1E1E1E] w-full max-w-sm rounded-[32px] p-6 shadow-2xl slide-up"><h3 className="text-lg font-bold mb-4 dark:text-white">Freund +</h3><input className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white p-4 rounded-xl mb-4 font-bold outline-none" placeholder="Username" value={searchName} onChange={e => setSearchName(e.target.value)} /><button onClick={()=>{}} className="w-full py-3 bg-black dark:bgwhite dark:text-black text-white rounded-xl font-bold mb-2">Hinzufügen</button><button onClick={()=>setShowSearchModal(false)} className="w-full py-3 text-gray-400 text-sm font-bold">Abbrechen</button></div></div>}
 
                     {showVaultPanel && (
                         <VaultPanel
