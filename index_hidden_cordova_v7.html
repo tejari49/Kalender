@@ -757,7 +757,9 @@
                 if (!otherUid) return;
 
                 const t = (file.type || '').toLowerCase();
-                if (!t.startsWith('image/')) {
+                const name = file.name || '';
+                const looksLikeImage = t.startsWith('image/') || (!t && /\.(jpe?g|png|webp|gif|heic|heif|bmp)$/i.test(name));
+                if (!looksLikeImage) {
                     showToast('Nur Bilder');
                     return;
                 }
