@@ -196,6 +196,15 @@
             for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
             return bytes;
         };
+        const IMAGE_EXT_PATTERN = /\.(jpe?g|png|webp|gif|heic|heif|bmp|avif)$/i;
+        const isImageFile = (file) => {
+            if (!file) return false;
+            const t = (file?.type || '').toLowerCase();
+            const fileName = file?.name || '';
+            const typeIsImage = t.startsWith('image/');
+            const nameMatches = IMAGE_EXT_PATTERN.test(fileName);
+            return typeIsImage || nameMatches;
+        };
 
         const canUseSecretCrypto = () => {
             return !!(window.crypto && window.crypto.subtle);
@@ -756,9 +765,7 @@
                 const otherUid = getOtherUid(conv);
                 if (!otherUid) return;
 
-                const t = (file.type || '').toLowerCase();
-                const name = file.name || '';
-                const looksLikeImage = t.startsWith('image/') || (!t && /\.(jpe?g|png|webp|gif|heic|heif|bmp)$/i.test(name));
+                const looksLikeImage = isImageFile(file);
                 if (!looksLikeImage) {
                     showToast('Nur Bilder');
                     return;
