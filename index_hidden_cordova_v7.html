@@ -2222,7 +2222,7 @@
             const secretNotifRef = useRef({ loaded: false, last: {} });
             const [showExportMenu, setShowExportMenu] = useState(false);
             const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
-            const [availabilityProposal, setAvailabilityProposal] = useState({ title: '', dates: [], votes: {} });
+            const [availabilityProposal, setAvailabilityProposal] = useState({ title: '', dates: [], votes: {}, targetCalId: '' });
 
 
             const [todayBlinkToken, setTodayBlinkToken] = useState(0);
@@ -2402,7 +2402,7 @@
             const [newEvent, setNewEvent] = useState({ title: '', description: '', time: '12:00', category: 'Arbeit', subCategory: '', targetCalId: '', recurrence: null, recurrenceEndDate: null, reminders: [] });
             const [todos, setTodos] = useState([]);
             const [showTodoModal, setShowTodoModal] = useState(false);
-            const [newTodo, setNewTodo] = useState({ title: '', description: '', dueDate: '', assignedTo: '', checklist: [], completed: false });
+            const [newTodo, setNewTodo] = useState({ title: '', description: '', dueDate: '', assignedTo: '', targetCalId: '', checklist: [], completed: false });
             const [proposals, setProposals] = useState([]);
             const [searchName, setSearchName] = useState('');
             const [expandedSettingsId, setExpandedSettingsId] = useState(null);
@@ -2902,7 +2902,7 @@
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 setShowTodoModal(false);
-                setNewTodo({ title: '', description: '', dueDate: '', assignedTo: '', checklist: [], completed: false });
+                setNewTodo({ title: '', description: '', dueDate: '', assignedTo: '', targetCalId: '', checklist: [], completed: false });
                 showToast("TODO erstellt");
             };
 
@@ -2945,7 +2945,7 @@
                 });
                 
                 setShowAvailabilityModal(false);
-                setAvailabilityProposal({ title: '', dates: [], votes: {} });
+                setAvailabilityProposal({ title: '', dates: [], votes: {}, targetCalId: '' });
                 showToast("Umfrage erstellt");
             };
 
