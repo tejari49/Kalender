@@ -921,10 +921,12 @@
 
                 setBusy(true);
                 try {
+                    console.log('Sending audio, blob size:', blob.size, 'type:', blob.type, 'duration:', durationMs);
                     const msgRef = convCollection.doc(activeConvId).collection('messages').doc();
                     const msgId = msgRef.id;
 
                     const bytes = new Uint8Array(await blob.arrayBuffer());
+                    console.log('Audio bytes length:', bytes.length);
                     const fullEnc = await encryptBytesFor(otherUid, bytes);
                     const fullCiphertext = bytesToBase64(fullEnc.cipherBytes);
                     if (fullCiphertext.length > MEDIA_B64_LIMIT) {
@@ -942,6 +944,7 @@
                         playedBy: [],
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
+                    console.log('Audio message saved successfully');
 
                     await convCollection.doc(activeConvId).update({
                         lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -952,7 +955,8 @@
                         if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
                     }, 60);
                 } catch (e) {
-                    showToast('Upload fehlgeschlagen');
+                    console.error('Audio upload error:', e);
+                    showToast('Upload fehlgeschlagen: ' + (e.message || ''));
                 } finally {
                     setBusy(false);
                 }
@@ -1316,23 +1320,39 @@
                     } else {
                         throw new Error('Media content not available');
                     }
+                    
+                    if (!bytes || bytes.length === 0) {
+                        throw new Error('Empty audio data');
+                    }
+                    
                     const blob = new Blob([bytes], { type: msg.mime || 'audio/webm' });
                     const objectUrl = URL.createObjectURL(blob);
 
-                    const a = new Audio(objectUrl);
+                    const a = new Audio();
+                    a.preload = 'auto';
+                    
+                    a.onloadeddata = () => {
+                        console.log('Audio loaded, duration:', a.duration);
+                    };
+                    
                     a.onended = () => {
                         try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+                        setPlayBusyId(null);
                         markPlayedAndMaybeDelete(msg);
                     };
-                    a.onerror = () => {
+                    
+                    a.onerror = (e) => {
+                        console.error('Audio playback error:', e);
                         try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+                        setPlayBusyId(null);
                         showToast('Wiedergabe fehlgeschlagen');
                     };
 
+                    a.src = objectUrl;
                     await a.play();
                 } catch (e) {
-                    showToast('Wiedergabe fehlgeschlagen');
-                } finally {
+                    console.error('Play audio error:', e);
+                    showToast('Wiedergabe fehlgeschlagen: ' + (e.message || ''));
                     setPlayBusyId(null);
                 }
             };
