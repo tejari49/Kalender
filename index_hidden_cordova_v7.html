@@ -580,7 +580,7 @@
             };
 
             const openMedia = async (msg) => {
-                if (!ready || !msg?.storagePath || !msg?.ivFull) return;
+                if (!ready || !msg?.ivFull) return;
                 const conv = convs.find(c => c.id === activeConvId);
                 if (!conv) return;
                 const otherUid = getOtherUid(conv);
@@ -589,15 +589,22 @@
                 setMediaOverlay({ id: msg.id, mine: msg.senderId === user.uid, url: null, loading: true, msg, openedAt: Date.now() });
 
                 try {
-                    const url = await storage.ref(msg.storagePath).getDownloadURL();
-                    const resp = await fetch(url);
-                    const encBuf = await resp.arrayBuffer();
+                    let bytes = null;
+                    if (msg.fullCiphertext) {
+                        bytes = await decryptBytesFrom(otherUid, msg.fullCiphertext, msg.ivFull);
+                    } else if (msg.storagePath) {
+                        const url = await storage.ref(msg.storagePath).getDownloadURL();
+                        const resp = await fetch(url);
+                        const encBuf = await resp.arrayBuffer();
+                        const key = await getSharedKey(otherUid);
+                        const iv = base64ToBytes(msg.ivFull);
+                        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encBuf);
+                        bytes = new Uint8Array(pt);
+                    } else {
+                        throw new Error('no-data');
+                    }
 
-                    const key = await getSharedKey(otherUid);
-                    const iv = base64ToBytes(msg.ivFull);
-                    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encBuf);
-
-                    const blob = new Blob([pt], { type: msg.mime || 'image/jpeg' });
+                    const blob = new Blob([bytes], { type: msg.mime || 'image/jpeg' });
                     const objectUrl = URL.createObjectURL(blob);
 
                     if (overlayObjectUrlRef.current) URL.revokeObjectURL(overlayObjectUrlRef.current);
@@ -612,12 +619,7 @@
 
             const deleteMedia = async (msg) => {
                 if (!msg) return closeMedia();
-                if (msg.senderId !== user.uid) return closeMedia();
-
                 try {
-                    if (msg.storagePath) {
-                        await storage.ref(msg.storagePath).delete().catch(()=>{});
-                    }
                     await convCollection.doc(activeConvId).collection('messages').doc(msg.id).delete();
                     showToast('Gelöscht');
                 } catch (e) {
@@ -785,14 +787,16 @@
 
                     const thumbEnc = await encryptBytesFor(otherUid, thumbBytes);
                     const fullEnc = await encryptBytesFor(otherUid, fullBytes);
-
-                    const storagePath = `secretMedia/${activeConvId}/${msgId}.bin`;
-                    await storage.ref(storagePath).put(new Blob([fullEnc.cipherBytes], { type: 'application/octet-stream' }));
+                    const fullCiphertext = bytesToBase64(fullEnc.cipherBytes);
+                    if (fullCiphertext.length > 900000) { // Firestore 1MB limit safeguard
+                        showToast('Bild zu groß');
+                        return;
+                    }
 
                     await msgRef.set({
                         senderId: user.uid,
                         kind: 'img',
-                        storagePath,
+                        fullCiphertext,
                         ivFull: fullEnc.ivB64,
                         mime: 'image/jpeg',
                         thumbCiphertext: bytesToBase64(thumbEnc.cipherBytes),
@@ -910,14 +914,16 @@
 
                     const bytes = new Uint8Array(await blob.arrayBuffer());
                     const fullEnc = await encryptBytesFor(otherUid, bytes);
-
-                    const storagePath = `secretMedia/${activeConvId}/${msgId}.bin`;
-                    await storage.ref(storagePath).put(new Blob([fullEnc.cipherBytes], { type: 'application/octet-stream' }));
+                    const fullCiphertext = bytesToBase64(fullEnc.cipherBytes);
+                    if (fullCiphertext.length > 900000) {
+                        showToast('Audio zu groß');
+                        return;
+                    }
 
                     await msgRef.set({
                         senderId: user.uid,
                         kind: 'aud',
-                        storagePath,
+                        fullCiphertext,
                         ivFull: fullEnc.ivB64,
                         mime: blob.type || 'audio/webm',
                         durationMs: Math.round(durationMs || 0),
@@ -1265,14 +1271,13 @@
                     const playedBy = d2.playedBy || [];
 
                     if (members.length && members.every(u => playedBy.includes(u))) {
-                        if (d2.storagePath) await storage.ref(d2.storagePath).delete().catch(()=>{});
                         await msgDoc.delete().catch(()=>{});
                     }
                 } catch (e) {}
             };
 
             const playAudio = async (msg) => {
-                if (!ready || !msg?.storagePath || !msg?.ivFull) return;
+                if (!ready || !msg?.ivFull) return;
                 if (!activeConvId) return;
                 if (playBusyId) return;
 
@@ -1283,15 +1288,21 @@
 
                 setPlayBusyId(msg.id);
                 try {
-                    const url = await storage.ref(msg.storagePath).getDownloadURL();
-                    const resp = await fetch(url);
-                    const encBuf = await resp.arrayBuffer();
-
-                    const key = await getSharedKey(otherUid);
-                    const iv = base64ToBytes(msg.ivFull);
-                    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encBuf);
-
-                    const blob = new Blob([pt], { type: msg.mime || 'audio/webm' });
+                    let bytes = null;
+                    if (msg.fullCiphertext) {
+                        bytes = await decryptBytesFrom(otherUid, msg.fullCiphertext, msg.ivFull);
+                    } else if (msg.storagePath) {
+                        const url = await storage.ref(msg.storagePath).getDownloadURL();
+                        const resp = await fetch(url);
+                        const encBuf = await resp.arrayBuffer();
+                        const key = await getSharedKey(otherUid);
+                        const iv = base64ToBytes(msg.ivFull);
+                        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encBuf);
+                        bytes = new Uint8Array(pt);
+                    } else {
+                        throw new Error('no-data');
+                    }
+                    const blob = new Blob([bytes], { type: msg.mime || 'audio/webm' });
                     const objectUrl = URL.createObjectURL(blob);
 
                     const a = new Audio(objectUrl);
@@ -1398,7 +1409,7 @@
                         }
 
                         // Bild-Eintrag
-                        if (m.kind === 'img' || (m.storagePath && m.thumbCiphertext)) {
+                        if (m.kind === 'img' || m.thumbCiphertext || m.fullCiphertext) {
                             let thumbDataUrl = null;
                             if (m.thumbCiphertext && m.thumbIv) {
                                 try {
@@ -1555,7 +1566,7 @@
                                                 {m.kind === 'img' ? (
                                                     <button type="button" onClick={() => openMedia(m)} className="block">
                                                         {m.thumbDataUrl ? (
-                                                            <img src={m.thumbDataUrl} className="w-44 h-44 object-cover rounded-2xl" />
+                                                            <img src={m.thumbDataUrl} className="w-44 h-44 object-cover rounded-2xl filter blur-sm" />
                                                         ) : (
                                                             <div className="w-44 h-44 rounded-2xl bg-gray-200 dark:bg-[#2D2D2D] flex items-center justify-center">
                                                                 <Icon name="image" />
@@ -1662,8 +1673,7 @@
                                 const openedAt = mediaOverlay.openedAt || 0;
                                 if (openedAt && (Date.now() - openedAt) < 450) return;
                                 if (mediaOverlay.loading) { closeMedia(); return; }
-                                if (mediaOverlay.mine) deleteMedia(mediaOverlay.msg);
-                                else closeMedia();
+                                deleteMedia(mediaOverlay.msg);
                             }}
                         >
                             {mediaOverlay.loading ? (
