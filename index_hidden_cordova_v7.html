@@ -196,7 +196,7 @@
             for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
             return bytes;
         };
-        const MEDIA_B64_LIMIT = 900000; // Firestore doc limit safeguard (~1MB)
+        const MEDIA_B64_LIMIT = 900000; // ~900KB to stay below Firestore 1MB doc limit
         const IMAGE_EXT_PATTERN = /\.(jpe?g|png|webp|gif|heic|heif|bmp|avif)$/i;
         const isImageFile = (file) => {
             if (!file) return false;
@@ -582,6 +582,7 @@
 
             const openMedia = async (msg) => {
                 if (!ready || !msg?.ivFull) return;
+                if (!msg.fullCiphertext && !msg.storagePath) return;
                 const conv = convs.find(c => c.id === activeConvId);
                 if (!conv) return;
                 const otherUid = getOtherUid(conv);
@@ -1279,6 +1280,7 @@
 
             const playAudio = async (msg) => {
                 if (!ready || !msg?.ivFull) return;
+                if (!msg.fullCiphertext && !msg.storagePath) return;
                 if (!activeConvId) return;
                 if (playBusyId) return;
 
@@ -1410,7 +1412,7 @@
                         }
 
                         // Bild-Eintrag
-                        if (m.kind === 'img' || m.thumbCiphertext || m.fullCiphertext) {
+                        if (m.kind === 'img' || (m.thumbCiphertext && m.thumbIv)) {
                             let thumbDataUrl = null;
                             if (m.thumbCiphertext && m.thumbIv) {
                                 try {
