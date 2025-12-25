@@ -177,6 +177,15 @@
             'Gesundheit': ['Arzt', 'Sport', 'Zahnarzt'],
             'Wichtig': ['Erinnerung', 'Behörde', 'Frist']
         };
+        
+        // Category to color mapping for automatic coloring
+        const CATEGORY_COLORS = {
+            'Arbeit': { bg: 'bg-blue-500', light: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-500', hex: '#3B82F6' },
+            'Privat': { bg: 'bg-purple-500', light: 'bg-purple-50 dark:bg-purple-900/30', text: 'text-purple-500', hex: '#A855F7' },
+            'Haushalt': { bg: 'bg-green-500', light: 'bg-green-50 dark:bg-green-900/30', text: 'text-green-500', hex: '#22C55E' },
+            'Gesundheit': { bg: 'bg-red-500', light: 'bg-red-50 dark:bg-red-900/30', text: 'text-red-500', hex: '#EF4444' },
+            'Wichtig': { bg: 'bg-orange-500', light: 'bg-orange-50 dark:bg-orange-900/30', text: 'text-orange-500', hex: '#F97316' }
+        };
 
         // --- ARCHIV HELPERS ---
         const generateSecretId = () => {
@@ -2296,6 +2305,12 @@
             const [showExportMenu, setShowExportMenu] = useState(false);
             const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
             const [availabilityProposal, setAvailabilityProposal] = useState({ title: '', dates: [], votes: {}, targetCalId: '' });
+            
+            // New Features
+            const [searchQuery, setSearchQuery] = useState('');
+            const [showSearchPanel, setShowSearchPanel] = useState(false);
+            const [calendarView, setCalendarView] = useState('month'); // 'month' or 'week'
+            const [showBackupModal, setShowBackupModal] = useState(false);
 
 
             const [todayBlinkToken, setTodayBlinkToken] = useState(0);
@@ -3255,6 +3270,117 @@
                 showToast("PDF-Export geöffnet");
             };
 
+            // BACKUP/RESTORE FUNCTIONS
+            const exportBackup = async () => {
+                if(isDemo) {
+                    showToast("Nicht im Demo-Modus verfügbar");
+                    return;
+                }
+                
+                try {
+                    const backup = {
+                        version: '1.0',
+                        exportDate: new Date().toISOString(),
+                        user: {
+                            uid: user.uid,
+                            displayName: user.displayName,
+                            email: user.email
+                        },
+                        categories: categories,
+                        calendars: myCalendars.map(cal => ({
+                            ...cal,
+                            // Remove Firestore-specific fields
+                            id: cal.id,
+                            name: cal.name,
+                            color: cal.color,
+                            memberIds: cal.memberIds,
+                            shiftEnabled: cal.shiftEnabled,
+                            shiftDefinitions: cal.shiftDefinitions
+                        })),
+                        events: events.map(e => ({
+                            ...e,
+                            date: e.date.toISOString(),
+                            createdAt: e.createdAt?.toDate?.()?.toISOString?.() || null,
+                            recurrenceEndDate: e.recurrenceEndDate?.toDate?.()?.toISOString?.() || null
+                        })),
+                        todos: todos.map(t => ({
+                            ...t,
+                            dueDate: t.dueDate ? new Date(t.dueDate).toISOString() : null,
+                            createdAt: t.createdAt?.toDate?.()?.toISOString?.() || null
+                        })),
+                        proposals: proposals.map(p => ({
+                            ...p,
+                            dates: p.dates.map(d => new Date(d).toISOString()),
+                            createdAt: p.createdAt?.toDate?.()?.toISOString?.() || null
+                        }))
+                    };
+                    
+                    const dataStr = JSON.stringify(backup, null, 2);
+                    const blob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `kalender_backup_${new Date().toISOString().split('T')[0]}.json`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast("Backup erfolgreich exportiert");
+                } catch (e) {
+                    console.error('Backup error:', e);
+                    showToast("Backup fehlgeschlagen");
+                }
+            };
+
+            const importBackup = async (file) => {
+                if(isDemo) {
+                    showToast("Nicht im Demo-Modus verfügbar");
+                    return;
+                }
+                
+                try {
+                    const text = await file.text();
+                    const backup = JSON.parse(text);
+                    
+                    if (!backup.version || !backup.categories) {
+                        showToast("Ungültiges Backup-Format");
+                        return;
+                    }
+                    
+                    if (!confirm("Backup importieren? Dies überschreibt Ihre aktuellen Kategorien!")) {
+                        return;
+                    }
+                    
+                    // Update categories
+                    setCategories(backup.categories);
+                    await db.collection('users').doc(user.uid).update({ categories: backup.categories });
+                    
+                    showToast("Backup erfolgreich importiert");
+                    setShowBackupModal(false);
+                } catch (e) {
+                    console.error('Import error:', e);
+                    showToast("Import fehlgeschlagen: " + e.message);
+                }
+            };
+
+            // SEARCH FUNCTION
+            const searchResults = useMemo(() => {
+                if (!searchQuery.trim()) return { events: [], todos: [] };
+                
+                const query = searchQuery.toLowerCase();
+                const matchedEvents = events.filter(e => 
+                    e.title?.toLowerCase().includes(query) ||
+                    e.description?.toLowerCase().includes(query) ||
+                    e.category?.toLowerCase().includes(query) ||
+                    e.createdByName?.toLowerCase().includes(query)
+                );
+                
+                const matchedTodos = todos.filter(t =>
+                    t.title?.toLowerCase().includes(query) ||
+                    t.description?.toLowerCase().includes(query)
+                );
+                
+                return { events: matchedEvents, todos: matchedTodos };
+            }, [searchQuery, events, todos]);
+
             // RENDER
             const filteredEvents = useMemo(() => {
                 let result = [];
@@ -3366,6 +3492,8 @@
                         </div>
                         <div className="flex gap-2">
                             <button onClick={() => setCurrentDate(new Date())} className={`px-3 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm font-bold text-xs uppercase dark:text-white ${todayBlinkToken ? "blink-attn" : ""}`}>Heute</button>
+                            <button onClick={() => setShowSearchPanel(true)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm" title="Suchen"><Icon name="search"/></button>
+                            <button onClick={() => setCalendarView(calendarView === 'month' ? 'week' : 'month')} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm" title={calendarView === 'month' ? 'Wochenansicht' : 'Monatsansicht'}><Icon name={calendarView === 'month' ? 'calendar' : 'grid'}/></button>
                             <button onClick={() => setShowSettingsModal(true)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm"><Icon name="settings"/></button>
                         </div>
                     </div>
@@ -3481,7 +3609,10 @@
                             {filteredEvents.filter(e => e.type !== 'shift').length === 0 ? <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-gray-800 rounded-3xl text-sm dark:text-gray-400">Keine Termine</div> : filteredEvents.filter(e => e.type !== 'shift').map(ev => {
                                 const isExpanded = expandedEventId === ev.id;
                                 const cal = myCalendars.find(c => c.id === ev.calendarId);
-                                const color = CALENDAR_COLORS.find(c => c.hex === cal?.color) || CALENDAR_COLORS[0];
+                                // Use category color if available, otherwise calendar color
+                                const categoryColor = CATEGORY_COLORS[ev.category];
+                                const calendarColor = CALENDAR_COLORS.find(c => c.hex === cal?.color) || CALENDAR_COLORS[0];
+                                const color = categoryColor || calendarColor;
                                 const isRequest = requests.some(r => r.id === ev.id);
                                 const isMyRequest = isRequest && ev.createdBy === user.uid;
                                 return (
@@ -3565,6 +3696,7 @@
                                     <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 w-48 z-20 slide-up">
                                         <button onClick={() => { exportToICS(events); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">iCal/ICS Export</button>
                                         {hasShiftPlan && <button onClick={() => { exportShiftsToPDF(); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">PDF Schichtplan</button>}
+                                        <button onClick={() => { setShowBackupModal(true); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">Backup/Restore</button>
                                     </div>
                                 )}
                             </div>
@@ -4060,6 +4192,130 @@
                                             </div>
                                         );
                                     })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Search Panel */}
+                    {showSearchPanel && (
+                        <div className="fixed inset-0 bg-white dark:bg-[#121212] z-50 flex flex-col slide-up">
+                            <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#121212] sticky top-0">
+                                <h2 className="text-2xl font-bold dark:text-white">Suche</h2>
+                                <button onClick={() => { setShowSearchPanel(false); setSearchQuery(''); }} className="p-2 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-full"><Icon name="x" size={24}/></button>
+                            </div>
+                            <div className="p-6 flex-1 overflow-y-auto bg-[#F8F9FA] dark:bg-[#000000]">
+                                <div className="mb-6">
+                                    <input 
+                                        type="text" 
+                                        className="w-full bg-white dark:bg-[#1E1E1E] dark:text-white px-6 py-4 rounded-2xl text-lg outline-none border-2 border-gray-200 dark:border-gray-700 focus:border-black dark:focus:border-white transition-all" 
+                                        placeholder="Termine und TODOs durchsuchen..." 
+                                        value={searchQuery}
+                                        onChange={e => setSearchQuery(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+
+                                {searchQuery.trim() && (
+                                    <div className="space-y-6">
+                                        {/* Search Results - Events */}
+                                        {searchResults.events.length > 0 && (
+                                            <div>
+                                                <h3 className="text-sm font-bold uppercase text-gray-400 mb-3">Termine ({searchResults.events.length})</h3>
+                                                <div className="space-y-3">
+                                                    {searchResults.events.map(ev => {
+                                                        const cal = myCalendars.find(c => c.id === ev.calendarId);
+                                                        const categoryColor = CATEGORY_COLORS[ev.category];
+                                                        const calendarColor = CALENDAR_COLORS.find(c => c.hex === cal?.color) || CALENDAR_COLORS[0];
+                                                        const color = categoryColor || calendarColor;
+                                                        return (
+                                                            <div key={ev.id} className="bg-white dark:bg-[#1E1E1E] rounded-2xl p-4 shadow-sm" onClick={() => { setSelectedDate(ev.date); setShowSearchPanel(false); setSearchQuery(''); }}>
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color.light} ${color.text}`}>
+                                                                        <Icon name="calendar" size={16} />
+                                                                    </div>
+                                                                    <div className="flex-1">
+                                                                        <p className="font-bold text-sm dark:text-white">{ev.title}</p>
+                                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{ev.date.toLocaleDateString('de-DE')} • {ev.time} • {ev.category}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Search Results - TODOs */}
+                                        {searchResults.todos.length > 0 && (
+                                            <div>
+                                                <h3 className="text-sm font-bold uppercase text-gray-400 mb-3">TODOs ({searchResults.todos.length})</h3>
+                                                <div className="space-y-3">
+                                                    {searchResults.todos.map(todo => {
+                                                        const cal = myCalendars.find(c => c.id === todo.calendarId);
+                                                        const color = CALENDAR_COLORS.find(c => c.hex === cal?.color) || CALENDAR_COLORS[0];
+                                                        return (
+                                                            <div key={todo.id} className="bg-white dark:bg-[#1E1E1E] rounded-2xl p-4 shadow-sm" onClick={() => { setShowTodoModal(true); setShowSearchPanel(false); setSearchQuery(''); }}>
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color.light} ${color.text}`}>
+                                                                        <Icon name="check" size={16} />
+                                                                    </div>
+                                                                    <div className="flex-1">
+                                                                        <p className="font-bold text-sm dark:text-white">{todo.title}</p>
+                                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{todo.dueDate ? new Date(todo.dueDate).toLocaleDateString('de-DE') : 'Kein Datum'}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {searchResults.events.length === 0 && searchResults.todos.length === 0 && (
+                                            <div className="text-center py-12 text-gray-400">
+                                                <Icon name="search" size={48} className="mx-auto mb-4 opacity-50"/>
+                                                <p className="text-sm">Keine Ergebnisse gefunden</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Backup/Restore Modal */}
+                    {showBackupModal && (
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                            <div className="bg-white dark:bg-[#1E1E1E] w-full max-w-md rounded-[32px] p-6 shadow-2xl slide-up">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-xl font-bold dark:text-white">Backup & Restore</h3>
+                                    <button onClick={() => setShowBackupModal(false)} className="p-2 bg-gray-50 dark:bg-[#2D2D2D] rounded-full text-gray-400"><Icon name="x" size={20}/></button>
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-4">
+                                        <p className="text-sm text-blue-900 dark:text-blue-200 mb-3">
+                                            <strong>Backup:</strong> Exportiert alle Ihre Kalender, Termine, TODOs und Kategorien als JSON-Datei.
+                                        </p>
+                                        <button onClick={exportBackup} className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-all">
+                                            📥 Backup Exportieren
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-4">
+                                        <p className="text-sm text-orange-900 dark:text-orange-200 mb-3">
+                                            <strong>Restore:</strong> Importiert Kategorien aus einer Backup-Datei. (Nur Kategorien werden wiederhergestellt)
+                                        </p>
+                                        <label className="block w-full py-3 bg-orange-500 text-white rounded-xl font-bold text-center cursor-pointer hover:bg-orange-600 transition-all">
+                                            📤 Backup Importieren
+                                            <input type="file" accept=".json" className="hidden" onChange={(e) => { if(e.target.files[0]) importBackup(e.target.files[0]); }} />
+                                        </label>
+                                    </div>
+
+                                    <button onClick={() => setShowBackupModal(false)} className="w-full py-3 text-gray-500 dark:text-gray-400 font-bold">
+                                        Abbrechen
+                                    </button>
                                 </div>
                             </div>
                         </div>
