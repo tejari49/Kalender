@@ -2925,6 +2925,7 @@
                                     const d = new Date(y, m, i);
                                     const isSel = d.toDateString() === selectedDate.toDateString();
                                     const isToday = d.toDateString() === todayStr;
+                                    const dow = d.getDay();
                                     
                                     // Shift Check
                                     const shiftEvent = events.find(e => e.type === 'shift' && e.date && e.date.toDateString() === d.toDateString() && (activeCalendarId === ALL_CALENDARS || e.calendarId === activeCalendarId));
@@ -2946,6 +2947,8 @@
 
                                     const cellStyle = shiftEvent ? { backgroundColor: shiftEvent.color + '60', color: 'inherit' } : {};
                                     const dragStyle = inDrag ? { backgroundColor: '#E5E7EB', color: 'black' } : {}; 
+                                    const weekendStyle = (!shiftEvent && (dow === 0 || dow === 6)) ? { backgroundColor: 'rgba(232, 240, 255, 0.7)' } : {};
+                                    const todayStyle = (!shiftEvent && isToday) ? { boxShadow: '0 0 0 2px rgba(255, 214, 102, 0.55)', backgroundColor: 'rgba(255, 249, 230, 0.9)' } : {};
 
                                     cells.push(
                                         <div key={i} className="aspect-square flex justify-center items-center">
@@ -2954,7 +2957,7 @@
                                                 onMouseDown={() => handlePointerDown(d)}
                                                 onMouseEnter={() => handlePointerEnter(d)}
                                                 onTouchStart={() => handlePointerDown(d)}
-                                                style={{...cellStyle, ...dragStyle, ...(shiftEvent ? {backgroundColor: shiftEvent.color} : {}) }}
+                                                style={{...cellStyle, ...dragStyle, ...weekendStyle, ...todayStyle, ...(shiftEvent ? {backgroundColor: shiftEvent.color} : {}) }}
                                                 className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center transition-all relative ${(isToday && todayBlinkToken) ? 'blink-attn' : ''} ${isSel && !shiftEvent && !inDrag ? 'bg-black text-white dark:bg-white dark:text-black shadow-lg' : 'hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white'}`}
                                             >
                                                 <span className={`text-sm font-medium relative z-10 ${shiftEvent ? 'text-white' : ''}`}>{i}</span>
