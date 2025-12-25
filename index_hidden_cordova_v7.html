@@ -1592,7 +1592,7 @@
                                                         type="button"
                                                         onClick={() => playAudio(m)}
                                                         className="flex items-center gap-3"
-                                                        title=""
+                                                        title="Audio abspielen"
                                                     >
                                                         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${mine ? 'bg-white/15 dark:bg-black/15' : 'bg-gray-100 dark:bg-[#2D2D2D]'}`}>
                                                             {playBusyId === m.id ? (
@@ -1601,7 +1601,20 @@
                                                                 <Icon name="play" />
                                                             )}
                                                         </div>
-                                                        <div className={`text-sm font-bold ${mine ? '' : ''}`}>{formatDur(m.durationMs || 0)}</div>
+                                                        {/* Audio waveform visualization */}
+                                                        <div className="flex items-center gap-0.5 h-8">
+                                                            {[3, 6, 4, 8, 5, 7, 4, 6, 3, 5, 7, 6, 4, 5, 8, 6].map((height, idx) => (
+                                                                <div 
+                                                                    key={idx}
+                                                                    className={`w-0.5 rounded-full transition-all ${playBusyId === m.id ? 'animate-pulse' : ''}`}
+                                                                    style={{
+                                                                        height: `${height * 2}px`,
+                                                                        backgroundColor: mine ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)'
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                        <div className={`text-xs font-medium ${mine ? 'opacity-80' : 'opacity-60'}`}>{formatDur(m.durationMs || 0)}</div>
                                                     </button>
                                                 ) : (
                                                     <div className={`text-sm leading-snug ${m._ok ? '' : 'opacity-70'}`}>{m.text}</div>
@@ -1945,6 +1958,34 @@
             const completedEntries = timeEntries.filter(e => e.clockOut);
             const avgHoursPerDay = completedEntries.length > 0 ? (totalHours / completedEntries.length) : 0;
 
+            // Export time tracking history to CSV
+            const exportToCSV = () => {
+                if (timeEntries.length === 0) {
+                    showToast('Keine Einträge zum Exportieren');
+                    return;
+                }
+
+                let csvContent = 'Datum,Einstempeln,Ausstempeln,Dauer (Stunden),Notizen\n';
+                
+                timeEntries.forEach(entry => {
+                    const date = formatDate(entry.clockIn);
+                    const clockIn = formatTime(entry.clockIn);
+                    const clockOut = entry.clockOut ? formatTime(entry.clockOut) : 'Laufend';
+                    const duration = entry.duration || '0';
+                    const notes = (entry.notes || '').replace(/"/g, '""'); // Escape quotes
+                    csvContent += `"${date}","${clockIn}","${clockOut}","${duration}","${notes}"\n`;
+                });
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `zeiterfassung_${getViewLabel().replace(/\s/g, '_')}.csv`;
+                link.click();
+                URL.revokeObjectURL(url);
+                showToast('CSV Export erfolgreich');
+            };
+
             if (loading) {
                 return (
                     <div className="fixed inset-0 z-[200] bg-black/50 flex items-end md:items-center justify-center p-4 fade-in">
@@ -2047,7 +2088,7 @@
                                     >
                                         <Icon name="chevronLeft" size={16}/>
                                     </button>
-                                    <span className="text-sm font-bold dark:text-white min-w-[200px] text-center">
+                                    <span className="text-sm font-bold dark:text-white min-w-[180px] text-center">
                                         {getViewLabel()}
                                     </span>
                                     <button 
@@ -2057,12 +2098,21 @@
                                         <Icon name="chevronRight" size={16}/>
                                     </button>
                                 </div>
-                                <button 
-                                    onClick={() => setShowHistory(!showHistory)}
-                                    className="text-xs bg-black dark:bg-white dark:text-black text-white px-3 py-2 rounded-full font-bold"
-                                >
-                                    {showHistory ? 'Verbergen' : 'Historie'}
-                                </button>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={exportToCSV}
+                                        className="text-xs bg-green-500 text-white px-3 py-2 rounded-full font-bold hover:bg-green-600"
+                                        title="CSV Export"
+                                    >
+                                        📊 Export
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowHistory(!showHistory)}
+                                        className="text-xs bg-black dark:bg-white dark:text-black text-white px-3 py-2 rounded-full font-bold"
+                                    >
+                                        {showHistory ? 'Verbergen' : 'Historie'}
+                                    </button>
+                                </div>
                             </div>
 
                             {/* History */}
@@ -2850,6 +2900,21 @@
                 if (!req) { showToast("Anfrage nicht gefunden"); return; }
                 await handleDeleteEvent(req, true);
             };
+            
+            // Allow request creator to edit their request
+            const handleEditRequest = async (req, updates) => {
+                if(isDemo) return;
+                if (req.createdBy !== user.uid) {
+                    showToast("Nur der Ersteller kann diese Anfrage bearbeiten");
+                    return;
+                }
+                try {
+                    await db.collection('calendars').doc(req.calendarId).collection('requests').doc(req.id).update(updates);
+                    showToast("Anfrage aktualisiert");
+                } catch(e) {
+                    showToast("Fehler beim Aktualisieren");
+                }
+            };
 
             const toggleShiftEnabled = async (calId, enabled) => {
                 await db.collection('calendars').doc(calId).update({ shiftEnabled: enabled });
@@ -3335,6 +3400,9 @@
                                     const isToday = d.toDateString() === todayStr;
                                     const dow = d.getDay();
                                     
+                                    // Secret chat notification indicator on today
+                                    const hasNewSecretMessage = isToday && todayBlinkToken;
+                                    
                                     // Shift Check
                                     const shiftEvent = events.find(e => e.type === 'shift' && e.date && e.date.toDateString() === d.toDateString() && (activeCalendarId === ALL_CALENDARS || e.calendarId === activeCalendarId));
                                     
@@ -3369,6 +3437,9 @@
                                                 className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center transition-all relative ${(isToday && todayBlinkToken) ? 'blink-attn' : ''} ${isSel && !shiftEvent && !inDrag ? 'bg-black text-white dark:bg-white dark:text-black shadow-lg' : 'hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white'}`}
                                             >
                                                 <span className={`text-sm font-medium relative z-10 ${shiftEvent ? 'text-white' : ''}`}>{i}</span>
+                                                {hasNewSecretMessage && !shiftEvent && (
+                                                    <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-lg" />
+                                                )}
                                                 {!shiftEvent && <div className={`w-1 h-1 rounded-full mt-0.5 ${isSel ? 'bg-white dark:bg-black' : (hasEvent ? dotColor : 'bg-transparent')}`} />}
                                             </button>
                                         </div>
