@@ -2920,9 +2920,11 @@
             };
 
             const handleDeleteEvent = async (ev, isReq) => {
-                 if(!isReq && !confirm("Termin löschen?")) return;
+                 if(isDemo) return;
+                 if(!confirm(isReq ? "Anfrage löschen?" : "Termin löschen?")) return;
                  const coll = isReq ? 'requests' : 'events';
                  await db.collection('calendars').doc(ev.calendarId || activeCalendarId).collection(coll).doc(ev.id).delete();
+                 showToast(isReq ? "Anfrage gelöscht" : "Termin gelöscht");
             };
 
             const handleAcceptRequest = async (req) => {
@@ -3385,6 +3387,7 @@
             const filteredEvents = useMemo(() => {
                 let result = [];
                 
+                // Include regular events
                 events.forEach(e => {
                     if(!e.date) return;
                     if (activeCalendarId !== ALL_CALENDARS && e.calendarId && e.calendarId !== activeCalendarId) return;
@@ -3400,8 +3403,19 @@
                     }
                 });
                 
+                // Include requests for the selected date
+                requests.forEach(req => {
+                    if(!req.date) return;
+                    if (activeCalendarId !== ALL_CALENDARS && req.calendarId && req.calendarId !== activeCalendarId) return;
+                    
+                    const isSameDate = req.date.toDateString() === selectedDate.toDateString();
+                    if (isSameDate) {
+                        result.push(req);
+                    }
+                });
+                
                 return result.sort((a,b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
-            }, [events, activeCalendarId, selectedDate]);
+            }, [events, requests, activeCalendarId, selectedDate]);
 
             const filteredTodos = useMemo(() => {
                 return todos.filter(t => {
@@ -3784,9 +3798,9 @@
 
                     {/* SHIFT BOTTOM BAR */}
                     {hasShiftPlan && activeCalendarId !== ALL_CALENDARS && (
-                        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1E1E1E] border-t dark:border-gray-800 p-3 z-40 flex justify-center shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-                            <button onClick={() => setShiftMode(!shiftMode)} className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold transition-all ${shiftMode ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-gray-100 dark:bg-[#2D2D2D] dark:text-white'}`}>
-                                <Icon name="briefcase" /> {shiftMode ? 'Pinsel-Modus AN' : 'Pinsel-Modus AUS'}
+                        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1E1E1E] border-t dark:border-gray-800 p-2 z-40 flex justify-center shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+                            <button onClick={() => setShiftMode(!shiftMode)} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${shiftMode ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-gray-100 dark:bg-[#2D2D2D] dark:text-white'}`}>
+                                <Icon name="briefcase" size={16} /> {shiftMode ? 'Pinsel AN' : 'Pinsel AUS'}
                             </button>
                         </div>
                     )}
