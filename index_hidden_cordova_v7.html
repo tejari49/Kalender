@@ -2585,8 +2585,20 @@
                     if (delay > 0 && delay < MS_PER_DAY) { // Within 24 hours
                         setTimeout(() => {
                             try {
+                                // Format reminder time appropriately
+                                let timeText = '';
+                                if (reminderMinutes >= 1440) {
+                                    const days = Math.floor(reminderMinutes / 1440);
+                                    timeText = `${days} Tag${days > 1 ? 'en' : ''}`;
+                                } else if (reminderMinutes >= 60) {
+                                    const hours = Math.floor(reminderMinutes / 60);
+                                    timeText = `${hours} Stunde${hours > 1 ? 'n' : ''}`;
+                                } else {
+                                    timeText = `${reminderMinutes} Minute${reminderMinutes > 1 ? 'n' : ''}`;
+                                }
+                                
                                 new Notification('Erinnerung: ' + event.title, {
-                                    body: `Beginnt in ${reminderMinutes} Minuten`,
+                                    body: `Beginnt in ${timeText}`,
                                     tag: event.id + '-' + reminderMinutes,
                                     requireInteraction: true
                                 });
@@ -2968,64 +2980,71 @@
                 const endDate = event.recurrenceEndDate ? event.recurrenceEndDate.toDate() : new Date(MAX_RECURRENCE_YEAR, 11, 31);
                 const exceptions = event.recurrenceExceptions || [];
                 
-                let currentDate = new Date(eventDate);
                 const targetMonth = targetDate.getMonth();
                 const targetYear = targetDate.getFullYear();
                 
-                switch(event.recurrence) {
-                    case 'daily':
-                        while (currentDate <= endDate) {
-                            if (currentDate.getMonth() === targetMonth && currentDate.getFullYear() === targetYear) {
-                                const dateStr = currentDate.toDateString();
-                                if (!exceptions.includes(dateStr)) {
-                                    results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
-                                }
-                            }
-                            currentDate.setDate(currentDate.getDate() + 1);
-                        }
-                        break;
-                    case 'weekly':
-                        while (currentDate <= endDate) {
-                            if (currentDate.getMonth() === targetMonth && currentDate.getFullYear() === targetYear) {
-                                const dateStr = currentDate.toDateString();
-                                if (!exceptions.includes(dateStr)) {
-                                    results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
-                                }
-                            }
-                            currentDate.setDate(currentDate.getDate() + 7);
-                        }
-                        break;
-                    case 'biweekly':
-                        while (currentDate <= endDate) {
-                            if (currentDate.getMonth() === targetMonth && currentDate.getFullYear() === targetYear) {
-                                const dateStr = currentDate.toDateString();
-                                if (!exceptions.includes(dateStr)) {
-                                    results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
-                                }
-                            }
-                            currentDate.setDate(currentDate.getDate() + 14);
-                        }
-                        break;
-                    case 'monthly':
-                        while (currentDate <= endDate) {
-                            if (currentDate.getMonth() === targetMonth && currentDate.getFullYear() === targetYear) {
-                                const dateStr = currentDate.toDateString();
-                                if (!exceptions.includes(dateStr)) {
-                                    results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
-                                }
-                            }
-                            currentDate.setMonth(currentDate.getMonth() + 1);
-                        }
-                        break;
-                    case 'yearly':
-                        if (eventDate.getDate() === targetDate.getDate() && eventDate.getMonth() === targetDate.getMonth()) {
-                            const dateStr = targetDate.toDateString();
+                // For yearly recurrence, check if target date is valid
+                if (event.recurrence === 'yearly') {
+                    if (eventDate.getDate() === targetDate.getDate() && eventDate.getMonth() === targetDate.getMonth()) {
+                        const yearlyDate = new Date(targetYear, targetDate.getMonth(), targetDate.getDate());
+                        if (yearlyDate >= eventDate && yearlyDate <= endDate) {
+                            const dateStr = yearlyDate.toDateString();
                             if (!exceptions.includes(dateStr)) {
-                                results.push({ ...event, date: new Date(targetDate), isRecurrence: true });
+                                results.push({ ...event, date: new Date(yearlyDate), isRecurrence: true });
                             }
                         }
-                        break;
+                    }
+                    return results;
                 }
+                
+                // For other recurrences, optimize by starting from first day of target month
+                const monthStart = new Date(targetYear, targetMonth, 1);
+                const monthEnd = new Date(targetYear, targetMonth + 1, 0);
+                
+                // Calculate the first occurrence in or before the target month
+                let currentDate = new Date(eventDate);
+                const interval = {
+                    'daily': 1,
+                    'weekly': 7,
+                    'biweekly': 14,
+                    'monthly': 0 // handled separately
+                }[event.recurrence] || 1;
+                
+                if (event.recurrence === 'monthly') {
+                    // Jump to the month
+                    currentDate = new Date(monthStart.getFullYear(), monthStart.getMonth(), eventDate.getDate());
+                    if (currentDate < monthStart) currentDate.setMonth(currentDate.getMonth() + 1);
+                    
+                    while (currentDate <= Math.min(monthEnd, endDate)) {
+                        if (currentDate >= eventDate) {
+                            const dateStr = currentDate.toDateString();
+                            if (!exceptions.includes(dateStr)) {
+                                results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
+                            }
+                        }
+                        currentDate.setMonth(currentDate.getMonth() + 1);
+                    }
+                } else {
+                    // For daily, weekly, biweekly
+                    // Fast-forward to near the target month
+                    if (currentDate < monthStart) {
+                        const daysDiff = Math.floor((monthStart - currentDate) / MS_PER_DAY);
+                        const steps = Math.floor(daysDiff / interval);
+                        currentDate.setDate(currentDate.getDate() + steps * interval);
+                    }
+                    
+                    // Now iterate through the target month
+                    while (currentDate <= Math.min(monthEnd, endDate)) {
+                        if (currentDate >= monthStart && currentDate >= eventDate) {
+                            const dateStr = currentDate.toDateString();
+                            if (!exceptions.includes(dateStr)) {
+                                results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
+                            }
+                        }
+                        currentDate.setDate(currentDate.getDate() + interval);
+                    }
+                }
+                
                 return results;
             };
 
@@ -3146,12 +3165,9 @@
                     if (isSameDate) {
                         result.push(e);
                     } else if (e.recurrence) {
+                        // getRecurringEvents already filters by target date
                         const recurring = getRecurringEvents(e, selectedDate);
-                        recurring.forEach(re => {
-                            if (re.date.toDateString() === selectedDate.toDateString()) {
-                                result.push(re);
-                            }
-                        });
+                        result.push(...recurring);
                     }
                 });
                 
