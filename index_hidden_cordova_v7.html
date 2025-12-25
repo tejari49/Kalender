@@ -619,6 +619,7 @@
                 }
             };
 
+            // Hinweis: Absichtliche Freigabe – jeder Gesprächsteilnehmer darf per Doppeltap löschen
             const deleteMedia = async (msg) => {
                 if (!msg) return closeMedia();
                 try {
@@ -1273,6 +1274,7 @@
                     const playedBy = d2.playedBy || [];
 
                     if (members.length && members.every(u => playedBy.includes(u))) {
+                        // Kein Storage-Cleanup nötig: Medien werden inline (Base64) gespeichert
                         await msgDoc.delete().catch(()=>{});
                     }
                 } catch (e) {}
@@ -1412,7 +1414,7 @@
                         }
 
                         // Bild-Eintrag
-                        if (m.kind === 'img' || (m.thumbCiphertext && m.thumbIv)) {
+                        if (m.kind === 'img' || (m.thumbCiphertext && m.thumbIv) || (m.storagePath && m.thumbCiphertext)) {
                             let thumbDataUrl = null;
                             if (m.thumbCiphertext && m.thumbIv) {
                                 try {
