@@ -2220,6 +2220,10 @@
             const secretHoldTimerRef = useRef(null);
             const secretHoldTriggeredRef = useRef(false);
             const secretNotifRef = useRef({ loaded: false, last: {} });
+            const [showExportMenu, setShowExportMenu] = useState(false);
+            const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+            const [availabilityProposal, setAvailabilityProposal] = useState({ title: '', dates: [], votes: {} });
+
 
             const [todayBlinkToken, setTodayBlinkToken] = useState(0);
             const triggerTodayBlink = () => {
@@ -2395,7 +2399,11 @@
             };
 
 
-            const [newEvent, setNewEvent] = useState({ title: '', description: '', time: '12:00', category: 'Arbeit', subCategory: '', targetCalId: '', recurrence: false });
+            const [newEvent, setNewEvent] = useState({ title: '', description: '', time: '12:00', category: 'Arbeit', subCategory: '', targetCalId: '', recurrence: null, recurrenceEndDate: null, reminders: [] });
+            const [todos, setTodos] = useState([]);
+            const [showTodoModal, setShowTodoModal] = useState(false);
+            const [newTodo, setNewTodo] = useState({ title: '', description: '', dueDate: '', assignedTo: '', checklist: [], completed: false });
+            const [proposals, setProposals] = useState([]);
             const [searchName, setSearchName] = useState('');
             const [expandedSettingsId, setExpandedSettingsId] = useState(null);
             const [editName, setEditName] = useState('');
@@ -2539,6 +2547,79 @@
                         });
                     });
                     return () => { unsub1(); unsub2(); };
+                });
+                return () => unsubscribers.forEach(u => u());
+            }, [activeCalendarId, myCalendars, user, isDemo]);
+
+            // Load TODOs
+            useEffect(() => {
+                if (!user || isDemo) return;
+                if (myCalendars.length === 0) return;
+
+                const calendarsToFetch = activeCalendarId === ALL_CALENDARS ? myCalendars : myCalendars.filter(c => c.id === activeCalendarId);
+                const unsubscribers = calendarsToFetch.map(cal => {
+                    return db.collection('calendars').doc(cal.id).collection('todos').onSnapshot(snap => {
+                        const newTodos = snap.docs.map(d => ({ id: d.id, ...d.data(), dueDate: d.data().dueDate?.toDate(), calendarId: cal.id }));
+                        setTodos(prev => {
+                            const others = prev.filter(p => p.calendarId !== cal.id);
+                            return [...others, ...newTodos];
+                        });
+                    });
+                });
+                return () => unsubscribers.forEach(u => u());
+            }, [activeCalendarId, myCalendars, user, isDemo]);
+
+            // Schedule Notifications for Events with Reminders
+            useEffect(() => {
+                if (!notificationsEnabled || !('Notification' in window)) return;
+                if (Notification.permission !== 'granted') return;
+
+                const scheduleNotification = (event, reminderMinutes) => {
+                    const eventTime = event.date.getTime();
+                    const notifyTime = eventTime - (reminderMinutes * 60 * 1000);
+                    const delay = notifyTime - Date.now();
+
+                    if (delay > 0 && delay < 86400000) { // Within 24 hours
+                        setTimeout(() => {
+                            try {
+                                new Notification('Erinnerung: ' + event.title, {
+                                    body: `In ${reminderMinutes} Minuten`,
+                                    tag: event.id + '-' + reminderMinutes,
+                                    requireInteraction: true
+                                });
+                            } catch (e) {}
+                        }, delay);
+                    }
+                };
+
+                events.forEach(event => {
+                    if (event.reminders && Array.isArray(event.reminders)) {
+                        event.reminders.forEach(reminder => {
+                            scheduleNotification(event, reminder);
+                        });
+                    }
+                });
+            }, [events, notificationsEnabled]);
+
+            // Load Proposals (Availability Polls)
+            useEffect(() => {
+                if (!user || isDemo) return;
+                if (myCalendars.length === 0) return;
+
+                const calendarsToFetch = activeCalendarId === ALL_CALENDARS ? myCalendars : myCalendars.filter(c => c.id === activeCalendarId);
+                const unsubscribers = calendarsToFetch.map(cal => {
+                    return db.collection('calendars').doc(cal.id).collection('proposals').onSnapshot(snap => {
+                        const newProposals = snap.docs.map(d => ({ 
+                            id: d.id, 
+                            ...d.data(), 
+                            dates: (d.data().dates || []).map(ts => ts.toDate()),
+                            calendarId: cal.id 
+                        }));
+                        setProposals(prev => {
+                            const others = prev.filter(p => p.calendarId !== cal.id);
+                            return [...others, ...newProposals];
+                        });
+                    });
                 });
                 return () => unsubscribers.forEach(u => u());
             }, [activeCalendarId, myCalendars, user, isDemo]);
@@ -2724,10 +2805,14 @@
                 await db.collection('calendars').doc(targetId).collection(coll).add({
                     title: newEvent.title, description: newEvent.description || '', date: firebase.firestore.Timestamp.fromDate(d), 
                     category: newEvent.category, subCategory: newEvent.subCategory, createdBy: user.uid, createdByName: user.displayName, 
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(), recurrence: newEvent.recurrence ? 'yearly' : null
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(), 
+                    recurrence: newEvent.recurrence || null,
+                    recurrenceEndDate: newEvent.recurrenceEndDate ? firebase.firestore.Timestamp.fromDate(new Date(newEvent.recurrenceEndDate)) : null,
+                    recurrenceExceptions: [],
+                    reminders: newEvent.reminders || []
                 });
                 setShowAddEventModal(false);
-                setNewEvent({ ...newEvent, title: '', description: '' });
+                setNewEvent({ ...newEvent, title: '', description: '', reminders: [], recurrence: null, recurrenceEndDate: null });
                 showToast(isRequest ? "Anfrage gesendet" : "Gespeichert");
             };
 
@@ -2799,14 +2884,287 @@
             const deleteMainCategory = (c) => { if(confirm("Löschen?")){ const n={...categories}; delete n[c]; saveCategories(n); }};
             const deleteSubCategory = (m,s) => { const n={...categories}; n[m]=n[m].filter(x=>x!==s); saveCategories(n); };
 
+            // TODO LOGIC
+            const handleCreateTodo = async () => {
+                if(isDemo || !newTodo.title.trim()) return;
+                let targetId = activeCalendarId === ALL_CALENDARS ? newTodo.targetCalId : activeCalendarId;
+                if (!targetId) { showToast("Bitte Kalender wählen"); return; }
+
+                await db.collection('calendars').doc(targetId).collection('todos').add({
+                    title: newTodo.title,
+                    description: newTodo.description || '',
+                    dueDate: newTodo.dueDate ? firebase.firestore.Timestamp.fromDate(new Date(newTodo.dueDate)) : null,
+                    assignedTo: newTodo.assignedTo || null,
+                    checklist: newTodo.checklist || [],
+                    completed: false,
+                    createdBy: user.uid,
+                    createdByName: user.displayName,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                setShowTodoModal(false);
+                setNewTodo({ title: '', description: '', dueDate: '', assignedTo: '', checklist: [], completed: false });
+                showToast("TODO erstellt");
+            };
+
+            const toggleTodoComplete = async (todoId, calId, completed) => {
+                if(isDemo) return;
+                await db.collection('calendars').doc(calId).collection('todos').doc(todoId).update({ completed: !completed });
+            };
+
+            const deleteTodo = async (todoId, calId) => {
+                if(!confirm("TODO löschen?")) return;
+                await db.collection('calendars').doc(calId).collection('todos').doc(todoId).delete();
+            };
+
+            const updateTodoChecklist = async (todoId, calId, checklist) => {
+                if(isDemo) return;
+                await db.collection('calendars').doc(calId).collection('todos').doc(todoId).update({ checklist });
+            };
+
+            // AVAILABILITY & MEETING POLLING
+            const createAvailabilityProposal = async () => {
+                if(isDemo || !availabilityProposal.title.trim() || availabilityProposal.dates.length === 0) {
+                    showToast("Titel und Termine erforderlich");
+                    return;
+                }
+                
+                let targetId = activeCalendarId === ALL_CALENDARS ? availabilityProposal.targetCalId : activeCalendarId;
+                if (!targetId) { showToast("Bitte Kalender wählen"); return; }
+
+                const cal = myCalendars.find(c => c.id === targetId);
+                const memberIds = cal?.memberIds || [];
+
+                await db.collection('calendars').doc(targetId).collection('proposals').add({
+                    title: availabilityProposal.title,
+                    dates: availabilityProposal.dates.map(d => firebase.firestore.Timestamp.fromDate(new Date(d))),
+                    votes: {},
+                    createdBy: user.uid,
+                    createdByName: user.displayName,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    memberIds
+                });
+                
+                setShowAvailabilityModal(false);
+                setAvailabilityProposal({ title: '', dates: [], votes: {} });
+                showToast("Umfrage erstellt");
+            };
+
+            const voteOnProposal = async (proposalId, calId, dateIndex, vote) => {
+                if(isDemo) return;
+                await db.collection('calendars').doc(calId).collection('proposals').doc(proposalId).update({
+                    [`votes.${user.uid}.${dateIndex}`]: vote
+                });
+            };
+
+            // RECURRENCE HELPER
+            const getRecurringEvents = (event, targetDate) => {
+                if (!event.recurrence) return [];
+                
+                const results = [];
+                const eventDate = event.date;
+                const endDate = event.recurrenceEndDate ? event.recurrenceEndDate.toDate() : new Date(2099, 11, 31);
+                const exceptions = event.recurrenceExceptions || [];
+                
+                let currentDate = new Date(eventDate);
+                const targetMonth = targetDate.getMonth();
+                const targetYear = targetDate.getFullYear();
+                
+                switch(event.recurrence) {
+                    case 'daily':
+                        while (currentDate <= endDate) {
+                            if (currentDate.getMonth() === targetMonth && currentDate.getFullYear() === targetYear) {
+                                const dateStr = currentDate.toDateString();
+                                if (!exceptions.includes(dateStr)) {
+                                    results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
+                                }
+                            }
+                            currentDate.setDate(currentDate.getDate() + 1);
+                        }
+                        break;
+                    case 'weekly':
+                        while (currentDate <= endDate) {
+                            if (currentDate.getMonth() === targetMonth && currentDate.getFullYear() === targetYear) {
+                                const dateStr = currentDate.toDateString();
+                                if (!exceptions.includes(dateStr)) {
+                                    results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
+                                }
+                            }
+                            currentDate.setDate(currentDate.getDate() + 7);
+                        }
+                        break;
+                    case 'biweekly':
+                        while (currentDate <= endDate) {
+                            if (currentDate.getMonth() === targetMonth && currentDate.getFullYear() === targetYear) {
+                                const dateStr = currentDate.toDateString();
+                                if (!exceptions.includes(dateStr)) {
+                                    results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
+                                }
+                            }
+                            currentDate.setDate(currentDate.getDate() + 14);
+                        }
+                        break;
+                    case 'monthly':
+                        while (currentDate <= endDate) {
+                            if (currentDate.getMonth() === targetMonth && currentDate.getFullYear() === targetYear) {
+                                const dateStr = currentDate.toDateString();
+                                if (!exceptions.includes(dateStr)) {
+                                    results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
+                                }
+                            }
+                            currentDate.setMonth(currentDate.getMonth() + 1);
+                        }
+                        break;
+                    case 'yearly':
+                        if (eventDate.getDate() === targetDate.getDate() && eventDate.getMonth() === targetDate.getMonth()) {
+                            const dateStr = targetDate.toDateString();
+                            if (!exceptions.includes(dateStr)) {
+                                results.push({ ...event, date: new Date(targetDate), isRecurrence: true });
+                            }
+                        }
+                        break;
+                }
+                return results;
+            };
+
+            // EXPORT FUNCTIONS
+            const exportToICS = (events) => {
+                let icsContent = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//PlanWise//DE\nCALSCALE:GREGORIAN\n';
+                
+                events.forEach(event => {
+                    const dtstart = event.date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                    const dtend = new Date(event.date.getTime() + 3600000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                    const dtstamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                    
+                    icsContent += 'BEGIN:VEVENT\n';
+                    icsContent += `UID:${event.id}@planwise.de\n`;
+                    icsContent += `DTSTAMP:${dtstamp}\n`;
+                    icsContent += `DTSTART:${dtstart}\n`;
+                    icsContent += `DTEND:${dtend}\n`;
+                    icsContent += `SUMMARY:${event.title}\n`;
+                    if (event.description) icsContent += `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}\n`;
+                    if (event.recurrence) {
+                        const rrule = {
+                            'daily': 'FREQ=DAILY',
+                            'weekly': 'FREQ=WEEKLY',
+                            'biweekly': 'FREQ=WEEKLY;INTERVAL=2',
+                            'monthly': 'FREQ=MONTHLY',
+                            'yearly': 'FREQ=YEARLY'
+                        }[event.recurrence];
+                        if (rrule) {
+                            icsContent += `RRULE:${rrule}`;
+                            if (event.recurrenceEndDate) {
+                                const until = event.recurrenceEndDate.toDate().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                                icsContent += `;UNTIL=${until}`;
+                            }
+                            icsContent += '\n';
+                        }
+                    }
+                    icsContent += 'END:VEVENT\n';
+                });
+                
+                icsContent += 'END:VCALENDAR';
+                
+                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `kalender_${new Date().toISOString().split('T')[0]}.ics`;
+                link.click();
+                URL.revokeObjectURL(url);
+                showToast("ICS Export erfolgreich");
+            };
+
+            const exportShiftsToPDF = async () => {
+                if (activeCalendarId === ALL_CALENDARS) {
+                    showToast("Bitte einen Kalender wählen");
+                    return;
+                }
+                
+                // Simple HTML-to-Print approach for PDF
+                const cal = myCalendars.find(c => c.id === activeCalendarId);
+                const shiftEvents = events.filter(e => e.type === 'shift' && e.calendarId === activeCalendarId);
+                
+                const printWindow = window.open('', '_blank');
+                let html = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Schichtplan - ${cal?.name}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; padding: 20px; }
+                            h1 { text-align: center; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                            th { background-color: #f2f2f2; }
+                            @media print { button { display: none; } }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>Schichtplan: ${cal?.name}</h1>
+                        <p>Monat: ${currentDate.toLocaleString('de-DE', { month: 'long', year: 'numeric' })}</p>
+                        <table>
+                            <thead>
+                                <tr><th>Datum</th><th>Schicht</th><th>Zeit</th></tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                shiftEvents
+                    .filter(e => e.date.getMonth() === currentDate.getMonth() && e.date.getFullYear() === currentDate.getFullYear())
+                    .sort((a, b) => a.date - b.date)
+                    .forEach(e => {
+                        const shift = cal?.shiftDefinitions?.find(s => s.id === e.shiftId);
+                        html += `<tr><td>${e.date.toLocaleDateString('de-DE')}</td><td>${e.title}</td><td>${shift?.time || ''}</td></tr>`;
+                    });
+                
+                html += `
+                            </tbody>
+                        </table>
+                        <button onclick="window.print()">Drucken / Als PDF speichern</button>
+                    </body>
+                    </html>
+                `;
+                
+                printWindow.document.write(html);
+                printWindow.document.close();
+                showToast("PDF-Export geöffnet");
+            };
+
             // RENDER
-            const filteredEvents = events.filter(e => {
-                if(!e.date) return false;
-                if (activeCalendarId !== ALL_CALENDARS && e.calendarId && e.calendarId !== activeCalendarId) return false;
-                const isSameDate = e.date.toDateString() === selectedDate.toDateString();
-                const isRec = e.recurrence === 'yearly' && e.date.getDate() === selectedDate.getDate() && e.date.getMonth() === selectedDate.getMonth();
-                return isSameDate || isRec;
-            }).sort((a,b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
+            const filteredEvents = (() => {
+                let result = [];
+                
+                events.forEach(e => {
+                    if(!e.date) return;
+                    if (activeCalendarId !== ALL_CALENDARS && e.calendarId && e.calendarId !== activeCalendarId) return;
+                    
+                    const isSameDate = e.date.toDateString() === selectedDate.toDateString();
+                    
+                    if (isSameDate) {
+                        result.push(e);
+                    } else if (e.recurrence) {
+                        const recurring = getRecurringEvents(e, selectedDate);
+                        recurring.forEach(re => {
+                            if (re.date.toDateString() === selectedDate.toDateString()) {
+                                result.push(re);
+                            }
+                        });
+                    }
+                });
+                
+                return result.sort((a,b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
+            })();
+
+            const filteredTodos = todos.filter(t => {
+                if (activeCalendarId !== ALL_CALENDARS && t.calendarId !== activeCalendarId) return false;
+                return true;
+            }).sort((a, b) => {
+                if (a.completed !== b.completed) return a.completed ? 1 : -1;
+                if (a.dueDate && b.dueDate) return a.dueDate - b.dueDate;
+                if (a.dueDate) return -1;
+                if (b.dueDate) return 1;
+                return 0;
+            });
 
             const activeCalName = activeCalendarId === ALL_CALENDARS ? "Alle Kalender" : myCalendars.find(c => c.id === activeCalendarId)?.name;
             const filteredSettingsCalendars = myCalendars.filter(c => c.name.toLowerCase().includes(calendarSearchTerm.toLowerCase()));
@@ -2884,6 +3242,17 @@
                         </div>
                         <div className="flex gap-2">
                             <button onClick={() => setCurrentDate(new Date())} className={`px-3 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm font-bold text-xs uppercase dark:text-white ${todayBlinkToken ? "blink-attn" : ""}`}>Heute</button>
+                            <button onClick={() => setShowAvailabilityModal(true)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm" title="Terminfindung"><Icon name="calendar"/></button>
+                            <button onClick={() => setShowTodoModal(true)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm" title="TODOs"><Icon name="check"/></button>
+                            <div className="relative">
+                                <button onClick={() => setShowExportMenu(!showExportMenu)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm" title="Export"><Icon name="send"/></button>
+                                {showExportMenu && (
+                                    <div className="absolute top-12 right-0 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 w-48 z-20 slide-up">
+                                        <button onClick={() => { exportToICS(events); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">iCal/ICS Export</button>
+                                        {hasShiftPlan && <button onClick={() => { exportShiftsToPDF(); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">PDF Schichtplan</button>}
+                                    </div>
+                                )}
+                            </div>
                             <button onClick={() => setShowTimeTrackingPanel(true)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm" title="Zeiterfassung"><Icon name="clock"/></button>
                             <button onClick={() => setShowSettingsModal(true)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm"><Icon name="settings"/></button>
                             <button onClick={() => setShowAddEventModal(true)} className={`p-3 rounded-2xl shadow-lg transition-all text-white bg-black dark:bg-white dark:text-black`}><Icon name="plus"/></button>
@@ -3264,10 +3633,57 @@
                                     )}
                                     <input autoFocus className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" placeholder="Titel" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})}/>
                                     <textarea className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-medium outline-none h-24 resize-none" placeholder="Notiz..." value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})}/>
-                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-[#2D2D2D] p-4 rounded-2xl">
-                                        <input type="checkbox" id="recurrence" className="custom-checkbox" checked={newEvent.recurrence} onChange={e => setNewEvent({...newEvent, recurrence: e.target.checked})} />
-                                        <label htmlFor="recurrence" className="text-sm font-bold dark:text-white cursor-pointer select-none">Jährlich (Geburtstag)</label>
+                                    
+                                    {/* Recurrence Selection */}
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Wiederholung</label>
+                                        <select className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.recurrence || ''} onChange={e => setNewEvent({...newEvent, recurrence: e.target.value || null})}>
+                                            <option value="">Keine</option>
+                                            <option value="daily">Täglich</option>
+                                            <option value="weekly">Wöchentlich</option>
+                                            <option value="biweekly">14-tägig</option>
+                                            <option value="monthly">Monatlich</option>
+                                            <option value="yearly">Jährlich</option>
+                                        </select>
                                     </div>
+
+                                    {newEvent.recurrence && (
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Enddatum (optional)</label>
+                                            <input type="date" className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.recurrenceEndDate || ''} onChange={e => setNewEvent({...newEvent, recurrenceEndDate: e.target.value})} />
+                                        </div>
+                                    )}
+
+                                    {/* Reminders */}
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Erinnerungen</label>
+                                        <div className="space-y-2 mt-2">
+                                            {[
+                                                { value: 60, label: '1 Stunde vorher' },
+                                                { value: 1440, label: '1 Tag vorher' },
+                                                { value: 10080, label: '1 Woche vorher' }
+                                            ].map(reminder => (
+                                                <div key={reminder.value} className="flex items-center gap-3 bg-gray-50 dark:bg-[#2D2D2D] p-3 rounded-xl">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        id={`reminder-${reminder.value}`}
+                                                        className="custom-checkbox" 
+                                                        checked={(newEvent.reminders || []).includes(reminder.value)}
+                                                        onChange={e => {
+                                                            const reminders = newEvent.reminders || [];
+                                                            if (e.target.checked) {
+                                                                setNewEvent({...newEvent, reminders: [...reminders, reminder.value]});
+                                                            } else {
+                                                                setNewEvent({...newEvent, reminders: reminders.filter(r => r !== reminder.value)});
+                                                            }
+                                                        }}
+                                                    />
+                                                    <label htmlFor={`reminder-${reminder.value}`} className="text-sm dark:text-white cursor-pointer select-none">{reminder.label}</label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
                                     <input type="time" className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.time} onChange={e => setNewEvent({...newEvent, time: e.target.value})}/>
                                     <div className="grid grid-cols-2 gap-3">
                                         <select className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none text-sm appearance-none" value={newEvent.category} onChange={e => setNewEvent({...newEvent, category: e.target.value, subCategory: categories[e.target.value]?.[0] || ''})}>
@@ -3281,6 +3697,195 @@
                                         <button onClick={()=>handleCreateEvent()} className="w-full py-4 bg-black dark:bgwhite dark:text-black text-white rounded-2xl font-bold shadow-lg">Speichern</button>
                                         <button onClick={()=>handleCreateEvent(true)} className="w-full py-4 bg-gray-100 dark:bg-[#2D2D2D] text-gray-600 dark:text-white rounded-2xl font-bold">Als Anfrage senden</button>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* TODO Modal */}
+                    {showTodoModal && (
+                        <div className="fixed inset-0 bg-white dark:bg-[#121212] z-50 flex flex-col slide-up overflow-y-auto">
+                            <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#121212] sticky top-0">
+                                <h2 className="text-2xl font-bold dark:text-white">TODOs</h2>
+                                <button onClick={() => setShowTodoModal(false)} className="p-2 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-full"><Icon name="x" size={24}/></button>
+                            </div>
+                            <div className="p-6 flex-1 bg-[#F8F9FA] dark:bg-[#000000]">
+                                {/* New TODO Form */}
+                                <div className="bg-white dark:bg-[#1E1E1E] rounded-[32px] p-6 mb-6 shadow-sm">
+                                    <h3 className="text-lg font-bold dark:text-white mb-4">Neues TODO</h3>
+                                    <div className="space-y-3">
+                                        {activeCalendarId === ALL_CALENDARS && (
+                                            <select className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none" value={newTodo.targetCalId || ''} onChange={e => setNewTodo({...newTodo, targetCalId: e.target.value})}>
+                                                <option value="">Kalender wählen...</option>
+                                                {myCalendars.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                            </select>
+                                        )}
+                                        <input className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none" placeholder="Titel" value={newTodo.title} onChange={e => setNewTodo({...newTodo, title: e.target.value})} />
+                                        <textarea className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 outline-none resize-none h-24" placeholder="Beschreibung..." value={newTodo.description} onChange={e => setNewTodo({...newTodo, description: e.target.value})} />
+                                        <input type="date" className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none" placeholder="Fälligkeitsdatum" value={newTodo.dueDate} onChange={e => setNewTodo({...newTodo, dueDate: e.target.value})} />
+                                        
+                                        {/* Checklist Items */}
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-400 uppercase ml-1 mb-2 block">Checkliste</label>
+                                            {(newTodo.checklist || []).map((item, idx) => (
+                                                <div key={idx} className="flex gap-2 mb-2">
+                                                    <input className="flex-1 bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl p-2 text-sm outline-none" value={item} onChange={e => {
+                                                        const updated = [...newTodo.checklist];
+                                                        updated[idx] = e.target.value;
+                                                        setNewTodo({...newTodo, checklist: updated});
+                                                    }} />
+                                                    <button onClick={() => setNewTodo({...newTodo, checklist: newTodo.checklist.filter((_, i) => i !== idx)})} className="p-2 text-red-500"><Icon name="trash" size={16}/></button>
+                                                </div>
+                                            ))}
+                                            <button onClick={() => setNewTodo({...newTodo, checklist: [...(newTodo.checklist || []), '']})} className="text-sm text-blue-500 font-bold">+ Checklistenpunkt</button>
+                                        </div>
+
+                                        <button onClick={handleCreateTodo} className="w-full py-4 bg-black dark:bg-white dark:text-black text-white rounded-2xl font-bold shadow-lg">TODO Erstellen</button>
+                                    </div>
+                                </div>
+
+                                {/* TODO List */}
+                                <div className="space-y-3">
+                                    <h3 className="text-sm font-bold uppercase text-gray-400 mb-4">Alle TODOs</h3>
+                                    {filteredTodos.length === 0 ? (
+                                        <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-gray-800 rounded-3xl text-sm dark:text-gray-400">Keine TODOs</div>
+                                    ) : filteredTodos.map(todo => {
+                                        const cal = myCalendars.find(c => c.id === todo.calendarId);
+                                        const color = CALENDAR_COLORS.find(c => c.hex === cal?.color) || CALENDAR_COLORS[0];
+                                        const isOverdue = todo.dueDate && !todo.completed && new Date(todo.dueDate) < new Date();
+                                        
+                                        return (
+                                            <div key={todo.id} className={`bg-white dark:bg-[#1E1E1E] rounded-3xl p-5 shadow-sm ${todo.completed ? 'opacity-60' : ''}`}>
+                                                <div className="flex items-start gap-4">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="custom-checkbox mt-1" 
+                                                        checked={todo.completed} 
+                                                        onChange={() => toggleTodoComplete(todo.id, todo.calendarId, todo.completed)} 
+                                                    />
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <h4 className={`font-bold dark:text-white ${todo.completed ? 'line-through' : ''}`}>{todo.title}</h4>
+                                                            {activeCalendarId === ALL_CALENDARS && <span className={`${color.text} text-xs px-2 py-0.5 rounded-full ${color.light}`}>{cal?.name}</span>}
+                                                        </div>
+                                                        {todo.description && <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{todo.description}</p>}
+                                                        {todo.dueDate && (
+                                                            <p className={`text-xs font-bold ${isOverdue ? 'text-red-500' : 'text-gray-400'}`}>
+                                                                Fällig: {new Date(todo.dueDate).toLocaleDateString('de-DE')}
+                                                            </p>
+                                                        )}
+                                                        {todo.checklist && todo.checklist.length > 0 && (
+                                                            <div className="mt-3 space-y-1">
+                                                                {todo.checklist.map((item, idx) => (
+                                                                    <div key={idx} className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                                                                        <div className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                                                                        {item}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <button onClick={() => deleteTodo(todo.id, todo.calendarId)} className="p-2 text-gray-400 hover:text-red-500">
+                                                        <Icon name="trash" size={16}/>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Availability/Poll Modal */}
+                    {showAvailabilityModal && (
+                        <div className="fixed inset-0 bg-white dark:bg-[#121212] z-50 flex flex-col slide-up overflow-y-auto">
+                            <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#121212] sticky top-0">
+                                <h2 className="text-2xl font-bold dark:text-white">Terminfindung</h2>
+                                <button onClick={() => setShowAvailabilityModal(false)} className="p-2 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-full"><Icon name="x" size={24}/></button>
+                            </div>
+                            <div className="p-6 flex-1 bg-[#F8F9FA] dark:bg-[#000000]">
+                                {/* New Proposal Form */}
+                                <div className="bg-white dark:bg-[#1E1E1E] rounded-[32px] p-6 mb-6 shadow-sm">
+                                    <h3 className="text-lg font-bold dark:text-white mb-4">Neue Umfrage</h3>
+                                    <div className="space-y-3">
+                                        {activeCalendarId === ALL_CALENDARS && (
+                                            <select className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none" value={availabilityProposal.targetCalId || ''} onChange={e => setAvailabilityProposal({...availabilityProposal, targetCalId: e.target.value})}>
+                                                <option value="">Kalender wählen...</option>
+                                                {myCalendars.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                            </select>
+                                        )}
+                                        <input className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none" placeholder="Titel (z.B. Team-Meeting)" value={availabilityProposal.title} onChange={e => setAvailabilityProposal({...availabilityProposal, title: e.target.value})} />
+                                        
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-400 uppercase ml-1 mb-2 block">Terminvorschläge</label>
+                                            {availabilityProposal.dates.map((date, idx) => (
+                                                <div key={idx} className="flex gap-2 mb-2">
+                                                    <input type="datetime-local" className="flex-1 bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl p-3 font-bold outline-none" value={date} onChange={e => {
+                                                        const updated = [...availabilityProposal.dates];
+                                                        updated[idx] = e.target.value;
+                                                        setAvailabilityProposal({...availabilityProposal, dates: updated});
+                                                    }} />
+                                                    <button onClick={() => setAvailabilityProposal({...availabilityProposal, dates: availabilityProposal.dates.filter((_, i) => i !== idx)})} className="p-2 text-red-500"><Icon name="trash" size={16}/></button>
+                                                </div>
+                                            ))}
+                                            <button onClick={() => setAvailabilityProposal({...availabilityProposal, dates: [...availabilityProposal.dates, '']})} className="text-sm text-blue-500 font-bold">+ Termin hinzufügen</button>
+                                        </div>
+
+                                        <button onClick={createAvailabilityProposal} className="w-full py-4 bg-black dark:bg-white dark:text-black text-white rounded-2xl font-bold shadow-lg">Umfrage Erstellen</button>
+                                    </div>
+                                </div>
+
+                                {/* Existing Proposals */}
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-bold uppercase text-gray-400 mb-4">Aktive Umfragen</h3>
+                                    {proposals.length === 0 ? (
+                                        <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-gray-800 rounded-3xl text-sm dark:text-gray-400">Keine Umfragen</div>
+                                    ) : proposals.map(proposal => {
+                                        const cal = myCalendars.find(c => c.id === proposal.calendarId);
+                                        const color = CALENDAR_COLORS.find(c => c.hex === cal?.color) || CALENDAR_COLORS[0];
+                                        
+                                        return (
+                                            <div key={proposal.id} className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-5 shadow-sm">
+                                                <div className="mb-4">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <h4 className="font-bold text-lg dark:text-white">{proposal.title}</h4>
+                                                        {activeCalendarId === ALL_CALENDARS && <span className={`${color.text} text-xs px-2 py-0.5 rounded-full ${color.light}`}>{cal?.name}</span>}
+                                                    </div>
+                                                    <p className="text-xs text-gray-400">Erstellt von {proposal.createdByName}</p>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    {proposal.dates.map((date, idx) => {
+                                                        const dateObj = new Date(date);
+                                                        const votes = proposal.votes || {};
+                                                        const yesCount = Object.values(votes).filter(v => v[idx] === 'yes').length;
+                                                        const maybeCount = Object.values(votes).filter(v => v[idx] === 'maybe').length;
+                                                        const myVote = votes[user.uid]?.[idx];
+                                                        
+                                                        return (
+                                                            <div key={idx} className="bg-gray-50 dark:bg-[#2D2D2D] rounded-2xl p-4">
+                                                                <div className="flex justify-between items-center mb-2">
+                                                                    <div>
+                                                                        <div className="font-bold dark:text-white">{dateObj.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
+                                                                        <div className="text-xs text-gray-400">{dateObj.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</div>
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-400">
+                                                                        ✓ {yesCount} · ? {maybeCount}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex gap-2">
+                                                                    <button onClick={() => voteOnProposal(proposal.id, proposal.calendarId, idx, 'yes')} className={`flex-1 py-2 rounded-xl text-sm font-bold ${myVote === 'yes' ? 'bg-green-500 text-white' : 'bg-white dark:bg-[#1E1E1E] text-gray-600 dark:text-gray-300'}`}>✓ Ja</button>
+                                                                    <button onClick={() => voteOnProposal(proposal.id, proposal.calendarId, idx, 'maybe')} className={`flex-1 py-2 rounded-xl text-sm font-bold ${myVote === 'maybe' ? 'bg-yellow-500 text-white' : 'bg-white dark:bg-[#1E1E1E] text-gray-600 dark:text-gray-300'}`}>? Vielleicht</button>
+                                                                    <button onClick={() => voteOnProposal(proposal.id, proposal.calendarId, idx, 'no')} className={`flex-1 py-2 rounded-xl text-sm font-bold ${myVote === 'no' ? 'bg-red-500 text-white' : 'bg-white dark:bg-[#1E1E1E] text-gray-600 dark:text-gray-300'}`}>✗ Nein</button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
