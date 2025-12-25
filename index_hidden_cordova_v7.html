@@ -196,6 +196,7 @@
             for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
             return bytes;
         };
+        const MEDIA_B64_LIMIT = 900000; // Firestore doc limit safeguard (~1MB)
         const IMAGE_EXT_PATTERN = /\.(jpe?g|png|webp|gif|heic|heif|bmp|avif)$/i;
         const isImageFile = (file) => {
             if (!file) return false;
@@ -601,7 +602,7 @@
                         const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encBuf);
                         bytes = new Uint8Array(pt);
                     } else {
-                        throw new Error('no-data');
+                        throw new Error('Media content not available');
                     }
 
                     const blob = new Blob([bytes], { type: msg.mime || 'image/jpeg' });
@@ -788,7 +789,7 @@
                     const thumbEnc = await encryptBytesFor(otherUid, thumbBytes);
                     const fullEnc = await encryptBytesFor(otherUid, fullBytes);
                     const fullCiphertext = bytesToBase64(fullEnc.cipherBytes);
-                    if (fullCiphertext.length > 900000) { // Firestore 1MB limit safeguard
+                    if (fullCiphertext.length > MEDIA_B64_LIMIT) { // Firestore 1MB limit safeguard
                         showToast('Bild zu groß');
                         return;
                     }
@@ -915,7 +916,7 @@
                     const bytes = new Uint8Array(await blob.arrayBuffer());
                     const fullEnc = await encryptBytesFor(otherUid, bytes);
                     const fullCiphertext = bytesToBase64(fullEnc.cipherBytes);
-                    if (fullCiphertext.length > 900000) {
+                    if (fullCiphertext.length > MEDIA_B64_LIMIT) {
                         showToast('Audio zu groß');
                         return;
                     }
@@ -1300,7 +1301,7 @@
                         const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encBuf);
                         bytes = new Uint8Array(pt);
                     } else {
-                        throw new Error('no-data');
+                        throw new Error('Media content not available');
                     }
                     const blob = new Blob([bytes], { type: msg.mime || 'audio/webm' });
                     const objectUrl = URL.createObjectURL(blob);
