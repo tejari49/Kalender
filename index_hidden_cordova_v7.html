@@ -2582,12 +2582,15 @@
                     const notifyTime = eventTime - (reminderMinutes * 60 * 1000);
                     const delay = notifyTime - Date.now();
 
-                    if (delay > 0 && delay < MS_PER_DAY) { // Within 24 hours
+                    if (delay > 0 && delay < (7 * MS_PER_DAY)) { // Within 1 week
                         setTimeout(() => {
                             try {
                                 // Format reminder time appropriately
                                 let timeText = '';
-                                if (reminderMinutes >= 1440) {
+                                if (reminderMinutes >= 10080) { // 1 week or more
+                                    const weeks = Math.floor(reminderMinutes / 10080);
+                                    timeText = `${weeks} Woche${weeks > 1 ? 'n' : ''}`;
+                                } else if (reminderMinutes >= 1440) {
                                     const days = Math.floor(reminderMinutes / 1440);
                                     timeText = `${days} Tag${days > 1 ? 'en' : ''}`;
                                 } else if (reminderMinutes >= 60) {
@@ -3011,8 +3014,9 @@
                 }[event.recurrence] || 1;
                 
                 if (event.recurrence === 'monthly') {
-                    // Jump to the month
-                    currentDate = new Date(monthStart.getFullYear(), monthStart.getMonth(), eventDate.getDate());
+                    // Jump to the month - handle dates that don't exist in target month
+                    const targetDay = Math.min(eventDate.getDate(), new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate());
+                    currentDate = new Date(monthStart.getFullYear(), monthStart.getMonth(), targetDay);
                     if (currentDate < monthStart) currentDate.setMonth(currentDate.getMonth() + 1);
                     
                     while (currentDate <= Math.min(monthEnd, endDate)) {
@@ -3022,15 +3026,21 @@
                                 results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
                             }
                         }
-                        currentDate.setMonth(currentDate.getMonth() + 1);
+                        // Handle next month, ensuring valid day
+                        const nextMonth = currentDate.getMonth() + 1;
+                        const nextYear = currentDate.getFullYear() + Math.floor(nextMonth / 12);
+                        const adjustedMonth = nextMonth % 12;
+                        const maxDay = new Date(nextYear, adjustedMonth + 1, 0).getDate();
+                        const nextDay = Math.min(eventDate.getDate(), maxDay);
+                        currentDate = new Date(nextYear, adjustedMonth, nextDay);
                     }
                 } else {
                     // For daily, weekly, biweekly
-                    // Fast-forward to near the target month
+                    // Fast-forward to near the target month using milliseconds
                     if (currentDate < monthStart) {
                         const daysDiff = Math.floor((monthStart - currentDate) / MS_PER_DAY);
                         const steps = Math.floor(daysDiff / interval);
-                        currentDate.setDate(currentDate.getDate() + steps * interval);
+                        currentDate = new Date(currentDate.getTime() + steps * interval * MS_PER_DAY);
                     }
                     
                     // Now iterate through the target month
@@ -3041,7 +3051,7 @@
                                 results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
                             }
                         }
-                        currentDate.setDate(currentDate.getDate() + interval);
+                        currentDate = new Date(currentDate.getTime() + interval * MS_PER_DAY);
                     }
                 }
                 
@@ -3049,6 +3059,14 @@
             };
 
             // EXPORT FUNCTIONS
+            const escapeICSText = (text) => {
+                if (!text) return '';
+                return text.replace(/\\/g, '\\\\')
+                          .replace(/;/g, '\\;')
+                          .replace(/,/g, '\\,')
+                          .replace(/\n/g, '\\n');
+            };
+
             const exportToICS = (events) => {
                 let icsContent = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//PlanWise//DE\nCALSCALE:GREGORIAN\n';
                 
@@ -3062,8 +3080,8 @@
                     icsContent += `DTSTAMP:${dtstamp}\n`;
                     icsContent += `DTSTART:${dtstart}\n`;
                     icsContent += `DTEND:${dtend}\n`;
-                    icsContent += `SUMMARY:${event.title}\n`;
-                    if (event.description) icsContent += `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}\n`;
+                    icsContent += `SUMMARY:${escapeICSText(event.title)}\n`;
+                    if (event.description) icsContent += `DESCRIPTION:${escapeICSText(event.description)}\n`;
                     if (event.recurrence) {
                         const rrule = {
                             'daily': 'FREQ=DAILY',
