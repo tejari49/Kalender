@@ -196,7 +196,7 @@
             for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
             return bytes;
         };
-        const MEDIA_B64_LIMIT = 900000; // ~900KB to stay below Firestore 1MB doc limit
+        const MEDIA_B64_LIMIT = 900000; // ~900KB (~0.9MB) to stay below Firestore 1MB doc limit incl. base64 overhead
         const IMAGE_EXT_PATTERN = /\.(jpe?g|png|webp|gif|heic|heif|bmp|avif)$/i;
         const isImageFile = (file) => {
             if (!file) return false;
@@ -311,6 +311,12 @@
             };
 
             const getOtherUid = (conv) => (conv.memberIds || []).find(x => x !== user.uid);
+            const isImageMessage = (m) => {
+                if (!m) return false;
+                return m.kind === 'img'
+                    || (!!m.thumbCiphertext && !!m.thumbIv)
+                    || (!!m.storagePath && !!m.thumbCiphertext);
+            };
 
             const ensureSecretSetup = async () => {
                 if (!canUseSecretCrypto()) {
@@ -1414,7 +1420,7 @@
                         }
 
                         // Bild-Eintrag
-                        if (m.kind === 'img' || (m.thumbCiphertext && m.thumbIv) || (m.storagePath && m.thumbCiphertext)) {
+                        if (isImageMessage(m)) {
                             let thumbDataUrl = null;
                             if (m.thumbCiphertext && m.thumbIv) {
                                 try {
@@ -1571,7 +1577,7 @@
                                                 {m.kind === 'img' ? (
                                                     <button type="button" onClick={() => openMedia(m)} className="block">
                                                         {m.thumbDataUrl ? (
-                                                            <img src={m.thumbDataUrl} className="w-44 h-44 object-cover rounded-2xl filter blur-sm" />
+                                                            <img src={m.thumbDataUrl} className="w-44 h-44 object-cover rounded-2xl filter blur-sm" alt="Verschwommene Bildvorschau, Tippen zum Anzeigen" />
                                                         ) : (
                                                             <div className="w-44 h-44 rounded-2xl bg-gray-200 dark:bg-[#2D2D2D] flex items-center justify-center">
                                                                 <Icon name="image" />
