@@ -77,6 +77,81 @@
             0%,100%{ opacity:0; transform: scale(0.98); }
             50%{ opacity:0.45; transform: scale(1.04); }
         }
+        
+        /* Theme Palettes */
+        :root {
+            --primary: #1D1D1F;
+            --primary-light: #F8F9FA;
+            --accent: #3B82F6;
+            --bg: #F8F9FA;
+            --card: #FFFFFF;
+            --text: #1D1D1F;
+            --text-secondary: #6B7280;
+        }
+        
+        :root.nord {
+            --primary: #5E81AC;
+            --primary-light: #ECEFF4;
+            --accent: #88C0D0;
+            --bg: #ECEFF4;
+            --card: #E5E9F0;
+            --text: #2E3440;
+            --text-secondary: #4C566A;
+        }
+        
+        :root.dracula {
+            --primary: #BD93F9;
+            --primary-light: #282A36;
+            --accent: #FF79C6;
+            --bg: #282A36;
+            --card: #44475A;
+            --text: #F8F8F2;
+            --text-secondary: #6272A4;
+        }
+        
+        .dark:root {
+            --primary: #FFFFFF;
+            --primary-light: #121212;
+            --accent: #3B82F6;
+            --bg: #121212;
+            --card: #1E1E1E;
+            --text: #FFFFFF;
+            --text-secondary: #9CA3AF;
+        }
+        
+        .dark:root.nord {
+            --primary: #88C0D0;
+            --primary-light: #2E3440;
+            --accent: #81A1C1;
+            --bg: #2E3440;
+            --card: #3B4252;
+            --text: #ECEFF4;
+            --text-secondary: #D8DEE9;
+        }
+        
+        .dark:root.dracula {
+            --primary: #BD93F9;
+            --primary-light: #282A36;
+            --accent: #FF79C6;
+            --bg: #282A36;
+            --card: #44475A;
+            --text: #F8F8F2;
+            --text-secondary: #6272A4;
+        }
+        
+        /* Drag and Drop */
+        .draggable-event {
+            cursor: move;
+        }
+        
+        .drop-zone {
+            transition: background-color 0.2s;
+        }
+        
+        .drop-zone.drag-over {
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 2px dashed #3B82F6;
+        }
             
     </style>
 </head>
@@ -222,6 +297,232 @@
         const canUseSecretCrypto = () => {
             return !!(window.crypto && window.crypto.subtle);
         };
+
+        // --- NEW FEATURES HELPERS ---
+        
+        // Quick Add Natural Language Parser (German)
+        const parseQuickAdd = (input) => {
+            const result = { date: null, time: null, durationMin: 60, title: '' };
+            let remaining = input.trim();
+            
+            // Parse date keywords
+            const today = new Date();
+            const dateKeywords = {
+                'heute': 0, 
+                'morgen': 1, 
+                'übermorgen': 2,
+                'mo': getNextWeekday(today, 1), 'montag': getNextWeekday(today, 1),
+                'di': getNextWeekday(today, 2), 'dienstag': getNextWeekday(today, 2),
+                'mi': getNextWeekday(today, 3), 'mittwoch': getNextWeekday(today, 3),
+                'do': getNextWeekday(today, 4), 'donnerstag': getNextWeekday(today, 4),
+                'fr': getNextWeekday(today, 5), 'freitag': getNextWeekday(today, 5),
+                'sa': getNextWeekday(today, 6), 'samstag': getNextWeekday(today, 6),
+                'so': getNextWeekday(today, 0), 'sonntag': getNextWeekday(today, 0)
+            };
+            
+            for (const [keyword, offset] of Object.entries(dateKeywords)) {
+                const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+                if (regex.test(remaining)) {
+                    if (typeof offset === 'number') {
+                        result.date = new Date(today);
+                        result.date.setDate(today.getDate() + offset);
+                    } else {
+                        result.date = offset;
+                    }
+                    remaining = remaining.replace(regex, '').trim();
+                    break;
+                }
+            }
+            
+            // Parse time (15, 15:30, 15.30, "15 Uhr")
+            const timePatterns = [
+                /\b(\d{1,2}):(\d{2})\b/,  // 15:30
+                /\b(\d{1,2})\.(\d{2})\b/,  // 15.30
+                /\b(\d{1,2})\s*uhr\b/i,    // 15 Uhr
+                /\b(\d{1,2})\b(?!\d)/       // 15 (standalone)
+            ];
+            
+            for (const pattern of timePatterns) {
+                const match = remaining.match(pattern);
+                if (match) {
+                    const hours = parseInt(match[1]);
+                    const minutes = match[2] ? parseInt(match[2]) : 0;
+                    if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+                        result.time = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                        remaining = remaining.replace(match[0], '').trim();
+                        break;
+                    }
+                }
+            }
+            
+            // Parse duration (90min, 1h, 2h)
+            const durationPatterns = [
+                /\b(\d+)\s*min\b/i,
+                /\b(\d+)\s*h\b/i
+            ];
+            
+            for (const pattern of durationPatterns) {
+                const match = remaining.match(pattern);
+                if (match) {
+                    const value = parseInt(match[1]);
+                    result.durationMin = pattern.source.includes('h') ? value * 60 : value;
+                    remaining = remaining.replace(match[0], '').trim();
+                    break;
+                }
+            }
+            
+            // Rest is title
+            result.title = remaining || 'Neuer Termin';
+            
+            return result;
+        };
+        
+        const getNextWeekday = (from, targetDay) => {
+            const result = new Date(from);
+            const currentDay = result.getDay();
+            let daysToAdd = targetDay - currentDay;
+            if (daysToAdd <= 0) daysToAdd += 7;
+            result.setDate(result.getDate() + daysToAdd);
+            return result;
+        };
+        
+        // Check for event conflicts
+        const checkEventConflicts = (events, newEvent, targetDate, excludeEventId = null) => {
+            const conflicts = [];
+            const newStart = new Date(targetDate);
+            const [h, m] = (newEvent.time || '12:00').split(':');
+            newStart.setHours(parseInt(h), parseInt(m), 0, 0);
+            const newEnd = new Date(newStart.getTime() + (newEvent.durationMin || 60) * 60000);
+            
+            const dayEvents = events.filter(e => {
+                if (e.id === excludeEventId) return false;
+                const evDate = e.date instanceof Date ? e.date : (e.date?.toDate ? e.date.toDate() : new Date(e.date));
+                return evDate.toDateString() === targetDate.toDateString();
+            });
+            
+            for (const ev of dayEvents) {
+                const evStart = ev.date instanceof Date ? new Date(ev.date) : new Date(ev.date.toDate());
+                const evEnd = new Date(evStart.getTime() + (ev.durationMin || 60) * 60000);
+                
+                // Check overlap
+                if (newStart < evEnd && newEnd > evStart) {
+                    conflicts.push(ev);
+                }
+            }
+            
+            return conflicts;
+        };
+        
+        // Find next free slot
+        const findNextFreeSlot = (events, targetDate, durationMin = 60, startHour = 8, endHour = 18) => {
+            const slots = [];
+            const dayEvents = events.filter(e => {
+                const evDate = e.date instanceof Date ? e.date : (e.date?.toDate ? e.date.toDate() : new Date(e.date));
+                return evDate.toDateString() === targetDate.toDateString();
+            }).sort((a, b) => {
+                const aDate = a.date instanceof Date ? a.date : a.date.toDate();
+                const bDate = b.date instanceof Date ? b.date : b.date.toDate();
+                return aDate - bDate;
+            });
+            
+            let currentTime = new Date(targetDate);
+            currentTime.setHours(startHour, 0, 0, 0);
+            const endTime = new Date(targetDate);
+            endTime.setHours(endHour, 0, 0, 0);
+            
+            for (const ev of dayEvents) {
+                const evStart = ev.date instanceof Date ? new Date(ev.date) : new Date(ev.date.toDate());
+                const evEnd = new Date(evStart.getTime() + (ev.durationMin || 60) * 60000);
+                
+                if (currentTime < evStart && (evStart - currentTime) >= durationMin * 60000) {
+                    return currentTime;
+                }
+                currentTime = new Date(Math.max(currentTime, evEnd));
+            }
+            
+            if (currentTime < endTime && (endTime - currentTime) >= durationMin * 60000) {
+                return currentTime;
+            }
+            
+            return null;
+        };
+        
+        // Smart suggestions for free slots
+        const suggestFreeSlots = (events, targetDate, historicalEvents = []) => {
+            const slots = [];
+            const durationMin = 60;
+            
+            // Get historical patterns (most common hours)
+            const hourCounts = {};
+            historicalEvents.forEach(ev => {
+                const evDate = ev.date instanceof Date ? ev.date : (ev.date?.toDate ? ev.date.toDate() : new Date(ev.date));
+                const hour = evDate.getHours();
+                hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+            });
+            
+            const popularHours = Object.entries(hourCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([hour]) => parseInt(hour));
+            
+            // Find free slots
+            for (let hour = 8; hour < 18; hour++) {
+                const testDate = new Date(targetDate);
+                testDate.setHours(hour, 0, 0, 0);
+                const testEnd = new Date(testDate.getTime() + durationMin * 60000);
+                
+                const hasConflict = events.some(ev => {
+                    const evDate = ev.date instanceof Date ? ev.date : (ev.date?.toDate ? ev.date.toDate() : new Date(ev.date));
+                    if (evDate.toDateString() !== targetDate.toDateString()) return false;
+                    const evStart = new Date(evDate);
+                    const evEnd = new Date(evStart.getTime() + (ev.durationMin || 60) * 60000);
+                    return testDate < evEnd && testEnd > evStart;
+                });
+                
+                if (!hasConflict) {
+                    const priority = popularHours.includes(hour) ? 1 : 0;
+                    slots.push({ time: `${hour.toString().padStart(2, '0')}:00`, priority });
+                }
+            }
+            
+            // Sort by priority (popular hours first) and return top 3
+            return slots.sort((a, b) => b.priority - a.priority).slice(0, 3);
+        };
+        
+        // Simple emoji picker data
+        const EMOJI_CATEGORIES = {
+            'Häufig': ['📅', '⏰', '✅', '🎯', '💼', '📝', '🏃', '🍕'],
+            'Arbeit': ['💼', '📊', '💻', '📞', '✉️', '📁', '🖊️', '📈'],
+            'Freizeit': ['🎮', '🎬', '🎵', '📚', '🎨', '🏋️', '⚽', '🎯'],
+            'Essen': ['🍕', '🍔', '🍜', '☕', '🍰', '🥗', '🍱', '🍷'],
+            'Reisen': ['✈️', '🚗', '🏖️', '🗺️', '🏨', '🎒', '📸', '🌍'],
+            'Gesundheit': ['💊', '🏥', '🧘', '💪', '🏃', '🚴', '🥗', '💆']
+        };
+        
+        // Default calendar templates
+        const DEFAULT_TEMPLATES = [
+            {
+                id: 'workout-week',
+                name: 'Workout-Woche',
+                events: [
+                    { dayOffset: 0, time: '07:00', durationMin: 60, title: 'Morgen-Workout', category: 'Gesundheit', subCategory: 'Sport', emoji: '🏋️' },
+                    { dayOffset: 2, time: '07:00', durationMin: 60, title: 'Cardio', category: 'Gesundheit', subCategory: 'Sport', emoji: '🏃' },
+                    { dayOffset: 4, time: '07:00', durationMin: 60, title: 'Yoga', category: 'Gesundheit', subCategory: 'Sport', emoji: '🧘' },
+                    { dayOffset: 6, time: '09:00', durationMin: 90, title: 'Langer Lauf', category: 'Gesundheit', subCategory: 'Sport', emoji: '🏃' }
+                ]
+            },
+            {
+                id: 'project-sprint',
+                name: 'Projekt-Sprint',
+                events: [
+                    { dayOffset: 0, time: '09:00', durationMin: 30, title: 'Sprint Planning', category: 'Arbeit', subCategory: 'Meeting', emoji: '📊' },
+                    { dayOffset: 1, time: '14:00', durationMin: 90, title: 'Deep Work', category: 'Arbeit', subCategory: 'Home Office', emoji: '💻', isFocus: true },
+                    { dayOffset: 2, time: '14:00', durationMin: 90, title: 'Deep Work', category: 'Arbeit', subCategory: 'Home Office', emoji: '💻', isFocus: true },
+                    { dayOffset: 3, time: '14:00', durationMin: 90, title: 'Deep Work', category: 'Arbeit', subCategory: 'Home Office', emoji: '💻', isFocus: true },
+                    { dayOffset: 4, time: '10:00', durationMin: 60, title: 'Sprint Review', category: 'Arbeit', subCategory: 'Meeting', emoji: '✅' }
+                ]
+            }
+        ];
 
         // --- AUTH SCREEN ---
         const AuthScreen = ({ onLoginSuccess, onDemoStart }) => {
@@ -2311,6 +2612,20 @@
             const [showSearchPanel, setShowSearchPanel] = useState(false);
             const [calendarView, setCalendarView] = useState('month'); // 'month' or 'week'
             const [showBackupModal, setShowBackupModal] = useState(false);
+            
+            // New Features State
+            const [quickAddInput, setQuickAddInput] = useState('');
+            const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+            const [showHabitsModal, setShowHabitsModal] = useState(false);
+            const [habits, setHabits] = useState([]);
+            const [habitLogs, setHabitLogs] = useState([]);
+            const [themeMode, setThemeMode] = useState(localStorage.getItem('themeMode') || 'light');
+            const [themePalette, setThemePalette] = useState(localStorage.getItem('themePalette') || 'default');
+            const [templates, setTemplates] = useState([]);
+            const [multiSelectMode, setMultiSelectMode] = useState(false);
+            const [selectedEventIds, setSelectedEventIds] = useState([]);
+            const [showConflictModal, setShowConflictModal] = useState(false);
+            const [conflictData, setConflictData] = useState(null);
 
 
             const [todayBlinkToken, setTodayBlinkToken] = useState(0);
@@ -2487,7 +2802,7 @@
             };
 
 
-            const [newEvent, setNewEvent] = useState({ title: '', description: '', time: '12:00', category: 'Arbeit', subCategory: '', targetCalId: '', recurrence: null, recurrenceEndDate: null, reminders: [] });
+            const [newEvent, setNewEvent] = useState({ title: '', description: '', time: '12:00', durationMin: 60, category: 'Arbeit', subCategory: '', targetCalId: '', recurrence: null, recurrenceEndDate: null, reminders: [], emoji: '', isFocus: false });
             const [todos, setTodos] = useState([]);
             const [showTodoModal, setShowTodoModal] = useState(false);
             const [newTodo, setNewTodo] = useState({ title: '', description: '', dueDate: '', assignedTo: '', targetCalId: '', checklist: [], completed: false });
@@ -2526,10 +2841,40 @@
             const hasShiftPlan = !!activeCalendar?.shiftEnabled;
 
             useEffect(() => { document.getElementById('loading').style.display = 'none'; }, []);
-            useEffect(() => { 
-                document.body.className = `transition-colors duration-300 ${darkMode ? 'bg-[#121212] text-white dark' : 'bg-[#F8F9FA] text-[#1D1D1F]'}`;
-                localStorage.setItem('theme', darkMode ? 'dark' : 'light');
-            }, [darkMode]);
+            
+            // Theme System Effect
+            useEffect(() => {
+                let effectiveDarkMode = darkMode;
+                
+                // Handle auto mode
+                if (themeMode === 'auto') {
+                    // Check prefers-color-scheme
+                    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                        effectiveDarkMode = true;
+                    } else {
+                        // Also check time-based (dark between 20:00-06:00)
+                        const hour = new Date().getHours();
+                        effectiveDarkMode = hour >= 20 || hour < 6;
+                    }
+                } else {
+                    effectiveDarkMode = themeMode === 'dark';
+                }
+                
+                // Apply theme
+                document.body.className = `transition-colors duration-300 ${effectiveDarkMode ? 'bg-[#121212] text-white dark' : 'bg-[#F8F9FA] text-[#1D1D1F]'}`;
+                
+                // Apply palette
+                const root = document.documentElement;
+                root.className = themePalette !== 'default' ? themePalette : '';
+                if (effectiveDarkMode) {
+                    root.classList.add('dark');
+                }
+                
+                // Save to localStorage
+                localStorage.setItem('theme', effectiveDarkMode ? 'dark' : 'light');
+                localStorage.setItem('themeMode', themeMode);
+                localStorage.setItem('themePalette', themePalette);
+            }, [darkMode, themeMode, themePalette]);
 
             useEffect(() => {
                 return auth.onAuthStateChanged((u) => {
@@ -2656,6 +3001,30 @@
                 });
                 return () => unsubscribers.forEach(u => u());
             }, [activeCalendarId, myCalendars, user, isDemo]);
+            
+            // Load Habits
+            useEffect(() => {
+                if (!user || isDemo) return;
+                const unsubHabits = db.collection('users').doc(user.uid).collection('habits').onSnapshot(snap => {
+                    const newHabits = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    setHabits(newHabits);
+                });
+                const unsubLogs = db.collection('users').doc(user.uid).collection('habitLogs').onSnapshot(snap => {
+                    const logs = snap.docs.map(d => ({ id: d.id, ...d.data(), date: d.data().date?.toDate() }));
+                    setHabitLogs(logs);
+                });
+                return () => { unsubHabits(); unsubLogs(); };
+            }, [user, isDemo]);
+            
+            // Load Templates
+            useEffect(() => {
+                if (!user || isDemo) return;
+                const unsub = db.collection('users').doc(user.uid).collection('templates').onSnapshot(snap => {
+                    const userTemplates = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    setTemplates([...DEFAULT_TEMPLATES, ...userTemplates]);
+                });
+                return () => unsub();
+            }, [user, isDemo]);
 
             // Schedule Notifications for Events with Reminders
             useEffect(() => {
@@ -2912,10 +3281,13 @@
                     recurrence: newEvent.recurrence || null,
                     recurrenceEndDate: newEvent.recurrenceEndDate ? firebase.firestore.Timestamp.fromDate(new Date(newEvent.recurrenceEndDate)) : null,
                     recurrenceExceptions: [],
-                    reminders: newEvent.reminders || []
+                    reminders: newEvent.reminders || [],
+                    durationMin: newEvent.durationMin || 60,
+                    emoji: newEvent.emoji || '',
+                    isFocus: newEvent.isFocus || false
                 });
                 setShowAddEventModal(false);
-                setNewEvent({ ...newEvent, title: '', description: '', reminders: [], recurrence: null, recurrenceEndDate: null });
+                setNewEvent({ ...newEvent, title: '', description: '', reminders: [], recurrence: null, recurrenceEndDate: null, durationMin: 60, emoji: '', isFocus: false });
                 showToast(isRequest ? "Anfrage gesendet" : "Gespeichert");
             };
 
@@ -3074,6 +3446,326 @@
                 await db.collection('calendars').doc(calId).collection('proposals').doc(proposalId).update({
                     [`votes.${user.uid}.${dateIndex}`]: vote
                 });
+            };
+            
+            // --- NEW FEATURES HANDLERS ---
+            
+            // Quick Add Handler
+            const handleQuickAdd = async () => {
+                if (!quickAddInput.trim()) return;
+                const parsed = parseQuickAdd(quickAddInput);
+                
+                // Set the newEvent with parsed data
+                const eventDate = parsed.date || selectedDate;
+                setSelectedDate(eventDate);
+                setNewEvent({
+                    ...newEvent,
+                    title: parsed.title,
+                    time: parsed.time || '12:00',
+                    durationMin: parsed.durationMin
+                });
+                
+                // Create event directly if we have everything
+                if (parsed.time) {
+                    let targetId = activeCalendarId === ALL_CALENDARS ? newEvent.targetCalId : activeCalendarId;
+                    if (!targetId) {
+                        showToast("Bitte Kalender wählen");
+                        setShowAddEventModal(true);
+                        return;
+                    }
+                    
+                    const d = new Date(eventDate);
+                    const [h, m] = parsed.time.split(':');
+                    d.setHours(parseInt(h), parseInt(m));
+                    
+                    // Check conflicts
+                    const conflicts = checkEventConflicts(events.filter(e => e.calendarId === targetId), 
+                        { time: parsed.time, durationMin: parsed.durationMin }, eventDate);
+                    
+                    if (conflicts.length > 0) {
+                        const freeSlot = findNextFreeSlot(events.filter(e => e.calendarId === targetId), eventDate, parsed.durationMin);
+                        setConflictData({
+                            conflicts,
+                            suggestedTime: freeSlot ? `${freeSlot.getHours().toString().padStart(2, '0')}:${freeSlot.getMinutes().toString().padStart(2, '0')}` : null,
+                            eventData: { ...parsed, date: eventDate, targetId }
+                        });
+                        setShowConflictModal(true);
+                        setQuickAddInput('');
+                        return;
+                    }
+                    
+                    await db.collection('calendars').doc(targetId).collection('events').add({
+                        title: parsed.title,
+                        description: '',
+                        date: firebase.firestore.Timestamp.fromDate(d),
+                        category: newEvent.category,
+                        subCategory: newEvent.subCategory,
+                        createdBy: user.uid,
+                        createdByName: user.displayName,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        durationMin: parsed.durationMin,
+                        emoji: '',
+                        isFocus: false,
+                        recurrence: null,
+                        recurrenceEndDate: null,
+                        recurrenceExceptions: [],
+                        reminders: []
+                    });
+                    showToast("✓ Termin erstellt");
+                    setQuickAddInput('');
+                } else {
+                    setShowAddEventModal(true);
+                }
+            };
+            
+            // Handle conflict resolution
+            const handleConflictResolution = async (useSlot) => {
+                if (!conflictData) return;
+                const { eventData } = conflictData;
+                const d = new Date(eventData.date);
+                const time = useSlot ? conflictData.suggestedTime : eventData.time;
+                const [h, m] = time.split(':');
+                d.setHours(parseInt(h), parseInt(m));
+                
+                await db.collection('calendars').doc(eventData.targetId).collection('events').add({
+                    title: eventData.title,
+                    description: '',
+                    date: firebase.firestore.Timestamp.fromDate(d),
+                    category: newEvent.category,
+                    subCategory: newEvent.subCategory,
+                    createdBy: user.uid,
+                    createdByName: user.displayName,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    durationMin: eventData.durationMin,
+                    emoji: '',
+                    isFocus: false,
+                    recurrence: null,
+                    recurrenceEndDate: null,
+                    recurrenceExceptions: [],
+                    reminders: []
+                });
+                showToast("✓ Termin erstellt");
+                setShowConflictModal(false);
+                setConflictData(null);
+            };
+            
+            // Habit Handlers
+            const createHabit = async (name, emoji = '') => {
+                if (!name.trim() || isDemo) return;
+                await db.collection('users').doc(user.uid).collection('habits').add({
+                    name: name.trim(),
+                    emoji,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showToast("Habit erstellt");
+            };
+            
+            const deleteHabit = async (habitId) => {
+                if (!confirm("Habit löschen?") || isDemo) return;
+                await db.collection('users').doc(user.uid).collection('habits').doc(habitId).delete();
+                // Also delete all logs
+                const logs = await db.collection('users').doc(user.uid).collection('habitLogs')
+                    .where('habitId', '==', habitId).get();
+                const batch = db.batch();
+                logs.docs.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+            };
+            
+            const logHabit = async (habitId, date = new Date()) => {
+                if (isDemo) return;
+                const dateStr = date.toISOString().split('T')[0];
+                const existing = habitLogs.find(l => l.habitId === habitId && l.date?.toDateString() === date.toDateString());
+                
+                if (existing) {
+                    await db.collection('users').doc(user.uid).collection('habitLogs').doc(existing.id).delete();
+                    showToast("✓ Entfernt");
+                } else {
+                    await db.collection('users').doc(user.uid).collection('habitLogs').add({
+                        habitId,
+                        date: firebase.firestore.Timestamp.fromDate(date),
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    showToast("✓ Erledigt");
+                }
+            };
+            
+            // Template Handlers
+            const applyTemplate = async (template, startDate) => {
+                if (isDemo) return;
+                let targetId = activeCalendarId === ALL_CALENDARS ? newEvent.targetCalId : activeCalendarId;
+                if (!targetId) {
+                    showToast("Bitte Kalender wählen");
+                    return;
+                }
+                
+                const batch = db.batch();
+                const eventRef = db.collection('calendars').doc(targetId).collection('events');
+                
+                template.events.forEach(tEvent => {
+                    const eventDate = new Date(startDate);
+                    eventDate.setDate(startDate.getDate() + tEvent.dayOffset);
+                    const [h, m] = tEvent.time.split(':');
+                    eventDate.setHours(parseInt(h), parseInt(m));
+                    
+                    const newDoc = eventRef.doc();
+                    batch.set(newDoc, {
+                        title: tEvent.title,
+                        description: '',
+                        date: firebase.firestore.Timestamp.fromDate(eventDate),
+                        category: tEvent.category,
+                        subCategory: tEvent.subCategory,
+                        createdBy: user.uid,
+                        createdByName: user.displayName,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        durationMin: tEvent.durationMin || 60,
+                        emoji: tEvent.emoji || '',
+                        isFocus: tEvent.isFocus || false,
+                        recurrence: null,
+                        recurrenceEndDate: null,
+                        recurrenceExceptions: [],
+                        reminders: []
+                    });
+                });
+                
+                await batch.commit();
+                showToast(`✓ Template "${template.name}" angewendet`);
+            };
+            
+            const copyDaySchedule = async (sourceDate, targetDate) => {
+                if (isDemo) return;
+                let targetId = activeCalendarId === ALL_CALENDARS ? newEvent.targetCalId : activeCalendarId;
+                if (!targetId) {
+                    showToast("Bitte Kalender wählen");
+                    return;
+                }
+                
+                const sourceEvents = events.filter(e => {
+                    if (e.calendarId !== targetId) return false;
+                    const evDate = e.date instanceof Date ? e.date : (e.date?.toDate ? e.date.toDate() : new Date(e.date));
+                    return evDate.toDateString() === sourceDate.toDateString() && e.type !== 'shift';
+                });
+                
+                if (sourceEvents.length === 0) {
+                    showToast("Keine Events an diesem Tag");
+                    return;
+                }
+                
+                const batch = db.batch();
+                const eventRef = db.collection('calendars').doc(targetId).collection('events');
+                
+                sourceEvents.forEach(ev => {
+                    const evDate = ev.date instanceof Date ? new Date(ev.date) : new Date(ev.date.toDate());
+                    const newDate = new Date(targetDate);
+                    newDate.setHours(evDate.getHours(), evDate.getMinutes());
+                    
+                    const newDoc = eventRef.doc();
+                    batch.set(newDoc, {
+                        title: ev.title,
+                        description: ev.description || '',
+                        date: firebase.firestore.Timestamp.fromDate(newDate),
+                        category: ev.category,
+                        subCategory: ev.subCategory,
+                        createdBy: user.uid,
+                        createdByName: user.displayName,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        durationMin: ev.durationMin || 60,
+                        emoji: ev.emoji || '',
+                        isFocus: ev.isFocus || false,
+                        recurrence: null,
+                        recurrenceEndDate: null,
+                        recurrenceExceptions: [],
+                        reminders: []
+                    });
+                });
+                
+                await batch.commit();
+                showToast(`✓ ${sourceEvents.length} Events kopiert`);
+            };
+            
+            // Drag & Drop Handlers
+            const handleEventDragStart = (e, event) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('eventId', event.id);
+                e.dataTransfer.setData('calendarId', event.calendarId);
+            };
+            
+            const handleDayDrop = async (e, targetDate) => {
+                e.preventDefault();
+                const eventId = e.dataTransfer.getData('eventId');
+                const calendarId = e.dataTransfer.getData('calendarId');
+                
+                if (!eventId || !calendarId || isDemo) return;
+                
+                const event = events.find(ev => ev.id === eventId && ev.calendarId === calendarId);
+                if (!event || event.type === 'shift') return;
+                
+                const oldDate = event.date instanceof Date ? event.date : event.date.toDate();
+                const newDate = new Date(targetDate);
+                newDate.setHours(oldDate.getHours(), oldDate.getMinutes());
+                
+                // Check conflicts
+                const conflicts = checkEventConflicts(events.filter(e => e.calendarId === calendarId), 
+                    { time: `${oldDate.getHours().toString().padStart(2, '0')}:${oldDate.getMinutes().toString().padStart(2, '0')}`, 
+                      durationMin: event.durationMin || 60 }, 
+                    newDate, eventId);
+                
+                if (conflicts.length > 0) {
+                    showToast(`⚠️ Konflikt! ${conflicts.length} überlappende Events`);
+                    return;
+                }
+                
+                await db.collection('calendars').doc(calendarId).collection('events').doc(eventId).update({
+                    date: firebase.firestore.Timestamp.fromDate(newDate)
+                });
+                showToast("✓ Verschoben");
+            };
+            
+            // Multi-Select Handlers
+            const toggleEventSelection = (eventId) => {
+                setSelectedEventIds(prev => 
+                    prev.includes(eventId) ? prev.filter(id => id !== eventId) : [...prev, eventId]
+                );
+            };
+            
+            const batchDeleteEvents = async () => {
+                if (selectedEventIds.length === 0 || isDemo) return;
+                if (!confirm(`${selectedEventIds.length} Events löschen?`)) return;
+                
+                const batch = db.batch();
+                selectedEventIds.forEach(eventId => {
+                    const event = events.find(e => e.id === eventId);
+                    if (event && event.type !== 'shift') {
+                        batch.delete(db.collection('calendars').doc(event.calendarId).collection('events').doc(eventId));
+                    }
+                });
+                
+                await batch.commit();
+                setSelectedEventIds([]);
+                setMultiSelectMode(false);
+                showToast(`✓ ${selectedEventIds.length} Events gelöscht`);
+            };
+            
+            const batchMoveEvents = async (targetDate) => {
+                if (selectedEventIds.length === 0 || isDemo) return;
+                
+                const batch = db.batch();
+                selectedEventIds.forEach(eventId => {
+                    const event = events.find(e => e.id === eventId);
+                    if (event && event.type !== 'shift') {
+                        const oldDate = event.date instanceof Date ? event.date : event.date.toDate();
+                        const newDate = new Date(targetDate);
+                        newDate.setHours(oldDate.getHours(), oldDate.getMinutes());
+                        batch.update(
+                            db.collection('calendars').doc(event.calendarId).collection('events').doc(eventId),
+                            { date: firebase.firestore.Timestamp.fromDate(newDate) }
+                        );
+                    }
+                });
+                
+                await batch.commit();
+                setSelectedEventIds([]);
+                setMultiSelectMode(false);
+                showToast(`✓ ${selectedEventIds.length} Events verschoben`);
             };
 
             // RECURRENCE HELPER
@@ -3429,6 +4121,64 @@
                     return 0;
                 });
             }, [todos, activeCalendarId]);
+            
+            // Focus Stats
+            const focusStats = useMemo(() => {
+                const today = new Date();
+                const todayStr = today.toDateString();
+                const weekStart = new Date(today);
+                weekStart.setDate(today.getDate() - today.getDay());
+                
+                let todayMinutes = 0;
+                let weekMinutes = 0;
+                
+                events.forEach(ev => {
+                    if (!ev.isFocus) return;
+                    const evDate = ev.date instanceof Date ? ev.date : (ev.date?.toDate ? ev.date.toDate() : new Date(ev.date));
+                    
+                    if (evDate.toDateString() === todayStr) {
+                        todayMinutes += (ev.durationMin || 60);
+                    }
+                    if (evDate >= weekStart) {
+                        weekMinutes += (ev.durationMin || 60);
+                    }
+                });
+                
+                return { todayMinutes, weekMinutes };
+            }, [events]);
+            
+            // Habit Streaks
+            const habitStreaks = useMemo(() => {
+                const streaks = {};
+                habits.forEach(habit => {
+                    const logs = habitLogs.filter(l => l.habitId === habit.id)
+                        .sort((a, b) => {
+                            const aDate = a.date instanceof Date ? a.date : a.date.toDate();
+                            const bDate = b.date instanceof Date ? b.date : b.date.toDate();
+                            return bDate - aDate;
+                        });
+                    
+                    let streak = 0;
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    for (let i = 0; i < logs.length; i++) {
+                        const logDate = logs[i].date instanceof Date ? new Date(logs[i].date) : new Date(logs[i].date.toDate());
+                        logDate.setHours(0, 0, 0, 0);
+                        const expectedDate = new Date(today);
+                        expectedDate.setDate(today.getDate() - streak);
+                        
+                        if (logDate.getTime() === expectedDate.getTime()) {
+                            streak++;
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                    streaks[habit.id] = streak;
+                });
+                return streaks;
+            }, [habits, habitLogs]);
 
             const activeCalName = activeCalendarId === ALL_CALENDARS ? "Alle Kalender" : myCalendars.find(c => c.id === activeCalendarId)?.name;
             const filteredSettingsCalendars = myCalendars.filter(c => c.name.toLowerCase().includes(calendarSearchTerm.toLowerCase()));
@@ -3644,7 +4394,22 @@
                                         });
                                         
                                         weekDays.push(
-                                            <div key={i} className={`bg-white dark:bg-[#2D2D2D] rounded-2xl p-4 cursor-pointer transition-all ${isSel ? 'ring-2 ring-black dark:ring-white' : ''} ${isToday ? 'border-2 border-yellow-400' : ''}`} onClick={() => setSelectedDate(d)}>
+                                            <div 
+                                                key={i} 
+                                                className={`bg-white dark:bg-[#2D2D2D] rounded-2xl p-4 cursor-pointer transition-all drop-zone ${isSel ? 'ring-2 ring-black dark:ring-white' : ''} ${isToday ? 'border-2 border-yellow-400' : ''}`} 
+                                                onClick={() => setSelectedDate(d)}
+                                                onDragOver={(e) => {
+                                                    e.preventDefault();
+                                                    e.currentTarget.classList.add('drag-over');
+                                                }}
+                                                onDragLeave={(e) => {
+                                                    e.currentTarget.classList.remove('drag-over');
+                                                }}
+                                                onDrop={(e) => {
+                                                    e.currentTarget.classList.remove('drag-over');
+                                                    handleDayDrop(e, d);
+                                                }}
+                                            >
                                                 <div className="flex items-center justify-between mb-3">
                                                     <div>
                                                         <div className="text-xs text-gray-400 uppercase font-bold">{d.toLocaleDateString('de-DE', { weekday: 'short' })}</div>
@@ -3698,6 +4463,43 @@
                         <h2 className="text-xs font-bold uppercase text-gray-400 mb-4 ml-2">
                             {selectedDate.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
                         </h2>
+                        
+                        {/* Multi-Select Controls */}
+                        {multiSelectMode && filteredEvents.filter(e => e.type !== 'shift').length > 0 && (
+                            <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex gap-2">
+                                <button 
+                                    onClick={() => {
+                                        const eventIds = filteredEvents.filter(e => e.type !== 'shift').map(e => e.id);
+                                        setSelectedEventIds(selectedEventIds.length === eventIds.length ? [] : eventIds);
+                                    }}
+                                    className="flex-1 py-2 bg-white dark:bg-[#1E1E1E] rounded-xl text-xs font-bold"
+                                >
+                                    {selectedEventIds.length === filteredEvents.filter(e => e.type !== 'shift').length ? 'Alle abwählen' : 'Alle wählen'}
+                                </button>
+                                {selectedEventIds.length > 0 && (
+                                    <>
+                                        <button 
+                                            onClick={batchDeleteEvents}
+                                            className="flex-1 py-2 bg-red-500 text-white rounded-xl text-xs font-bold"
+                                        >
+                                            Löschen ({selectedEventIds.length})
+                                        </button>
+                                        <button 
+                                            onClick={() => {
+                                                const targetDateStr = prompt("Verschieben zu (YYYY-MM-DD):", selectedDate.toISOString().split('T')[0]);
+                                                if (targetDateStr) {
+                                                    batchMoveEvents(new Date(targetDateStr));
+                                                }
+                                            }}
+                                            className="flex-1 py-2 bg-green-500 text-white rounded-xl text-xs font-bold"
+                                        >
+                                            Verschieben ({selectedEventIds.length})
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                        
                         <div className="space-y-3">
                             {filteredEvents.filter(e => e.type !== 'shift').length === 0 ? <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-gray-800 rounded-3xl text-sm dark:text-gray-400">Keine Termine</div> : filteredEvents.filter(e => e.type !== 'shift').map(ev => {
                                 const isExpanded = expandedEventId === ev.id;
@@ -3708,43 +4510,64 @@
                                 const color = categoryColor || calendarColor;
                                 const isRequest = requests.some(r => r.id === ev.id);
                                 const isMyRequest = isRequest && ev.createdBy === user.uid;
+                                const isSelected = selectedEventIds.includes(ev.id);
                                 return (
-                                    <div key={ev.id} className={`bg-white dark:bg-[#1E1E1E] rounded-3xl shadow-sm transition-all duration-300 overflow-hidden cursor-pointer ${isExpanded ? 'ring-1 ring-black/5 dark:ring-white/10' : ''}`} onClick={() => setExpandedEventId(isExpanded ? null : ev.id)}>
+                                    <div 
+                                        key={ev.id} 
+                                        draggable={!isRequest && !multiSelectMode}
+                                        onDragStart={(e) => handleEventDragStart(e, ev)}
+                                        className={`bg-white dark:bg-[#1E1E1E] rounded-3xl shadow-sm transition-all duration-300 overflow-hidden ${multiSelectMode ? 'cursor-pointer' : 'cursor-move'} ${isExpanded ? 'ring-1 ring-black/5 dark:ring-white/10' : ''} ${isSelected ? 'ring-2 ring-blue-500' : ''} draggable-event`} 
+                                        onClick={() => multiSelectMode ? toggleEventSelection(ev.id) : setExpandedEventId(isExpanded ? null : ev.id)}
+                                    >
                                         <div className="p-4 flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${color.light} ${color.text}`}>
-                                                    <Icon name={ev.recurrence ? "repeat" : "calendar"} size={20} />
+                                            {multiSelectMode && (
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="custom-checkbox mr-3" 
+                                                    checked={isSelected}
+                                                    onChange={() => toggleEventSelection(ev.id)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            )}
+                                            <div className="flex items-center gap-4 flex-1">
+                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${color.light} ${color.text} text-2xl`}>
+                                                    {ev.emoji || <Icon name={ev.recurrence ? "repeat" : "calendar"} size={20} />}
                                                 </div>
-                                                <div>
+                                                <div className="flex-1">
                                                     <div className="flex items-center gap-2">
                                                         <p className="font-bold text-sm text-gray-800 dark:text-white">{ev.title}</p>
                                                         {isRequest && <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 font-bold">ANFRAGE</span>}
+                                                        {ev.isFocus && <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 font-bold">🎯 FOKUS</span>}
                                                     </div>
                                                     <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                         <span>{ev.time}</span>
+                                                        <span>•</span>
+                                                        <span>{ev.durationMin || 60}min</span>
                                                         {activeCalendarId === ALL_CALENDARS && <span className={`${color.text} font-bold px-1.5 py-0.5 rounded bg-white/50`}>{cal?.name}</span>}
                                                     </div>
                                                 </div>
                                             </div>
-                                            <Icon name="chevronDown" size={16} className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>
+                                            {!multiSelectMode && <Icon name="chevronDown" size={16} className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>}
                                         </div>
-                                        <div className={`details-wrapper ${isExpanded ? 'open' : ''} bg-gray-50 dark:bg-[#252525]`}>
-                                            <div className="details-inner px-4 pb-4 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                                <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">{ev.description || 'Keine Notiz'}</p>
-                                                <div className="flex justify-between items-center text-[10px] text-gray-400 uppercase font-bold">
-                                                    <span>{ev.createdByName}</span>
-                                                    <div className="flex gap-2">
-                                                        {isRequest && !isMyRequest && !isDemo && (
-                                                            <>
-                                                                <button onClick={(e) => { e.stopPropagation(); handleAcceptRequest(ev); }} className="flex gap-1 items-center text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded"><Icon name="check" size={12}/> Annehmen</button>
-                                                                <button onClick={(e) => { e.stopPropagation(); handleDeclineRequest(ev.id); }} className="flex gap-1 items-center text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"><Icon name="x" size={12}/> Ablehnen</button>
-                                                            </>
-                                                        )}
-                                                        {!isDemo && (isMyRequest || !isRequest) && <button onClick={(e) => { e.stopPropagation(); handleDeleteEvent(ev, isRequest); }} className="flex gap-1 items-center text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"><Icon name="trash" size={12}/> Löschen</button>}
+                                        {!multiSelectMode && (
+                                            <div className={`details-wrapper ${isExpanded ? 'open' : ''} bg-gray-50 dark:bg-[#252525]`}>
+                                                <div className="details-inner px-4 pb-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                                    <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">{ev.description || 'Keine Notiz'}</p>
+                                                    <div className="flex justify-between items-center text-[10px] text-gray-400 uppercase font-bold">
+                                                        <span>{ev.createdByName}</span>
+                                                        <div className="flex gap-2">
+                                                            {isRequest && !isMyRequest && !isDemo && (
+                                                                <>
+                                                                    <button onClick={(e) => { e.stopPropagation(); handleAcceptRequest(ev); }} className="flex gap-1 items-center text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded"><Icon name="check" size={12}/> Annehmen</button>
+                                                                    <button onClick={(e) => { e.stopPropagation(); handleDeclineRequest(ev.id); }} className="flex gap-1 items-center text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"><Icon name="x" size={12}/> Ablehnen</button>
+                                                                </>
+                                                            )}
+                                                            {!isDemo && (isMyRequest || !isRequest) && <button onClick={(e) => { e.stopPropagation(); handleDeleteEvent(ev, isRequest); }} className="flex gap-1 items-center text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"><Icon name="trash" size={12}/> Löschen</button>}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -3779,14 +4602,20 @@
                                 <span className="text-[10px] font-bold dark:text-white">Zeit</span>
                             </button>
                             <div className="relative">
-                                <button onClick={() => setShowExportMenu(!showExportMenu)} className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-[#2D2D2D]" title="Export">
+                                <button onClick={() => setShowExportMenu(!showExportMenu)} className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-[#2D2D2D]" title="Mehr">
                                     <div className="p-2 rounded-full bg-gray-100 dark:bg-[#2D2D2D] text-gray-700 dark:text-gray-300">
-                                        <Icon name="send" size={18}/>
+                                        <Icon name="layers" size={18}/>
                                     </div>
-                                    <span className="text-[10px] font-bold dark:text-white">Export</span>
+                                    <span className="text-[10px] font-bold dark:text-white">Mehr</span>
                                 </button>
                                 {showExportMenu && (
-                                    <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 w-48 z-20 slide-up">
+                                    <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 w-52 z-20 slide-up max-h-96 overflow-y-auto">
+                                        <button onClick={() => { setShowHabitsModal(true); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm font-medium">🎯 Habit Tracker</button>
+                                        <button onClick={() => { setShowTemplatesModal(true); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm font-medium">📋 Templates</button>
+                                        <button onClick={() => { setMultiSelectMode(!multiSelectMode); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm font-medium">
+                                            {multiSelectMode ? '✓ Multi-Select AN' : '☐ Multi-Select'}
+                                        </button>
+                                        <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
                                         <button onClick={() => { exportToICS(events); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">iCal/ICS Export</button>
                                         {hasShiftPlan && <button onClick={() => { exportShiftsToPDF(); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">PDF Schichtplan</button>}
                                         <button onClick={() => { setShowBackupModal(true); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">Backup/Restore</button>
@@ -3828,7 +4657,38 @@
                                         <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg" style={{backgroundColor: userData.avatarColor || '#1D1D1F'}}>{editName?.charAt(0).toUpperCase()}</div>
                                         <div className="flex-1"><input className="w-full bg-transparent border-b border-gray-200 dark:border-gray-700 py-1 font-bold text-lg outline-none dark:text-white" value={editName} onChange={(e)=>setEditName(e.target.value)} onBlur={()=>user.updateProfile({displayName: editName})} /></div>
                                     </div>
-                                    <button onClick={()=>setDarkMode(!darkMode)} className="mt-4 w-full py-3 bg-gray-50 dark:bg-[#2D2D2D] rounded-xl font-bold text-sm dark:text-white flex items-center justifycenter gap-2">{darkMode ? <Icon name="sun"/> : <Icon name="moon"/>} {darkMode ? 'Light' : 'Dark'}</button>
+                                    
+                                    <div className="mt-4 space-y-3">
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-400 uppercase ml-1 mb-2 block">Theme Modus</label>
+                                            <select 
+                                                className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl p-3 font-bold outline-none" 
+                                                value={themeMode}
+                                                onChange={e => {
+                                                    setThemeMode(e.target.value);
+                                                    if (e.target.value === 'light') setDarkMode(false);
+                                                    else if (e.target.value === 'dark') setDarkMode(true);
+                                                }}
+                                            >
+                                                <option value="light">Light</option>
+                                                <option value="dark">Dark</option>
+                                                <option value="auto">Auto (Zeit & System)</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-400 uppercase ml-1 mb-2 block">Farbpalette</label>
+                                            <select 
+                                                className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl p-3 font-bold outline-none" 
+                                                value={themePalette}
+                                                onChange={e => setThemePalette(e.target.value)}
+                                            >
+                                                <option value="default">Standard</option>
+                                                <option value="nord">Nord</option>
+                                                <option value="dracula">Dracula</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="mt-4 bg-white dark:bg-[#1E1E1E] p-5 rounded-[28px] shadow-sm">
@@ -4031,7 +4891,50 @@
                                         </div>
                                     )}
                                     <input autoFocus className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" placeholder="Titel" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})}/>
+                                    
+                                    {/* Quick Add Input */}
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Schnelleingabe (optional)</label>
+                                        <div className="flex gap-2 mt-1">
+                                            <input 
+                                                className="flex-1 bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-medium outline-none text-sm" 
+                                                placeholder="z.B. morgen 15:30 90min Meeting"
+                                                value={quickAddInput}
+                                                onChange={e => setQuickAddInput(e.target.value)}
+                                                onKeyPress={e => e.key === 'Enter' && handleQuickAdd()}
+                                            />
+                                            <button onClick={handleQuickAdd} className="px-4 bg-blue-500 text-white rounded-2xl font-bold text-sm">Parse</button>
+                                        </div>
+                                    </div>
+                                    
                                     <textarea className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-medium outline-none h-24 resize-none" placeholder="Notiz..." value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})}/>
+                                    
+                                    {/* Emoji Picker */}
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Emoji (optional)</label>
+                                        <div className="flex flex-wrap gap-2 mt-1 p-3 bg-gray-50 dark:bg-[#2D2D2D] rounded-2xl max-h-32 overflow-y-auto">
+                                            {Object.entries(EMOJI_CATEGORIES).map(([category, emojis]) => (
+                                                <div key={category} className="flex flex-wrap gap-1">
+                                                    {emojis.map(emoji => (
+                                                        <button
+                                                            key={emoji}
+                                                            type="button"
+                                                            onClick={() => setNewEvent({...newEvent, emoji: newEvent.emoji === emoji ? '' : emoji})}
+                                                            className={`text-2xl p-2 rounded-lg transition-all ${newEvent.emoji === emoji ? 'bg-blue-100 dark:bg-blue-900/30 scale-110' : 'hover:bg-gray-100 dark:hover:bg-[#3D3D3D]'}`}
+                                                        >
+                                                            {emoji}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {newEvent.emoji && (
+                                            <div className="mt-2 text-center">
+                                                <span className="text-xs text-gray-400">Gewählt: </span>
+                                                <span className="text-2xl">{newEvent.emoji}</span>
+                                            </div>
+                                        )}
+                                    </div>
                                     
                                     {/* Recurrence Selection */}
                                     <div>
@@ -4084,6 +4987,50 @@
                                     </div>
 
                                     <input type="time" className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.time} onChange={e => setNewEvent({...newEvent, time: e.target.value})}/>
+                                    
+                                    {/* Duration */}
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Dauer (Minuten)</label>
+                                        <input 
+                                            type="number" 
+                                            min="15" 
+                                            step="15"
+                                            className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" 
+                                            value={newEvent.durationMin} 
+                                            onChange={e => setNewEvent({...newEvent, durationMin: parseInt(e.target.value) || 60})}
+                                        />
+                                    </div>
+                                    
+                                    {/* Focus Mode & Smart Suggestions */}
+                                    <div className="flex gap-2">
+                                        <button 
+                                            type="button"
+                                            onClick={() => setNewEvent({...newEvent, isFocus: !newEvent.isFocus})}
+                                            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${newEvent.isFocus ? 'bg-purple-500 text-white' : 'bg-gray-100 dark:bg-[#2D2D2D] text-gray-600 dark:text-gray-400'}`}
+                                        >
+                                            🎯 Fokusblock
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const suggestions = suggestFreeSlots(
+                                                    events.filter(e => e.calendarId === (activeCalendarId === ALL_CALENDARS ? newEvent.targetCalId : activeCalendarId)),
+                                                    selectedDate,
+                                                    events
+                                                );
+                                                if (suggestions.length > 0) {
+                                                    setNewEvent({...newEvent, time: suggestions[0].time});
+                                                    showToast(`✓ Vorschlag: ${suggestions[0].time}`);
+                                                } else {
+                                                    showToast("Keine freien Slots gefunden");
+                                                }
+                                            }}
+                                            className="flex-1 py-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl font-bold text-sm"
+                                        >
+                                            💡 Vorschlag
+                                        </button>
+                                    </div>
+                                    
                                     <div className="grid grid-cols-2 gap-3">
                                         <select className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none text-sm appearance-none" value={newEvent.category} onChange={e => setNewEvent({...newEvent, category: e.target.value, subCategory: categories[e.target.value]?.[0] || ''})}>
                                             {Object.keys(categories).map(c => <option key={c} value={c}>{c}</option>)}
@@ -4416,6 +5363,241 @@
 
                     {/* Add Friend - REMAINS FOR GLOBAL SEARCH IF NEEDED, BUT MEMBER ADD IS NOW IN CALENDAR SETTINGS */}
                     {showSearchModal && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4"><div className="bg-white dark:bg-[#1E1E1E] w-full max-w-sm rounded-[32px] p-6 shadow-2xl slide-up"><h3 className="text-lg font-bold mb-4 dark:text-white">Freund +</h3><input className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white p-4 rounded-xl mb-4 font-bold outline-none" placeholder="Username" value={searchName} onChange={e => setSearchName(e.target.value)} /><button onClick={()=>{}} className="w-full py-3 bg-black dark:bgwhite dark:text-black text-white rounded-xl font-bold mb-2">Hinzufügen</button><button onClick={()=>setShowSearchModal(false)} className="w-full py-3 text-gray-400 text-sm font-bold">Abbrechen</button></div></div>}
+
+                    {/* Conflict Detection Modal */}
+                    {showConflictModal && conflictData && (
+                        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                            <div className="bg-white dark:bg-[#1E1E1E] w-full max-w-md rounded-[32px] p-6 shadow-2xl slide-up">
+                                <h3 className="text-xl font-bold mb-4 dark:text-white text-red-500">⚠️ Zeitkonflikt erkannt!</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                    {conflictData.conflicts.length} überlappende(s) Event(s) gefunden:
+                                </p>
+                                <div className="space-y-2 mb-6 max-h-48 overflow-y-auto">
+                                    {conflictData.conflicts.map(ev => (
+                                        <div key={ev.id} className="p-3 bg-red-50 dark:bg-red-900/20 rounded-xl">
+                                            <div className="font-bold text-sm dark:text-white">{ev.title}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                {ev.date instanceof Date ? ev.date.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'}) : new Date(ev.date.toDate()).toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'})}
+                                                {' - '}
+                                                {(() => {
+                                                    const start = ev.date instanceof Date ? new Date(ev.date) : new Date(ev.date.toDate());
+                                                    const end = new Date(start.getTime() + (ev.durationMin || 60) * 60000);
+                                                    return end.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+                                                })()}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                {conflictData.suggestedTime && (
+                                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                                        <div className="text-sm font-bold text-blue-600 dark:text-blue-400 mb-2">💡 Nächster freier Slot:</div>
+                                        <div className="text-lg font-bold dark:text-white">{conflictData.suggestedTime} Uhr</div>
+                                    </div>
+                                )}
+                                <div className="flex flex-col gap-2">
+                                    {conflictData.suggestedTime && (
+                                        <button 
+                                            onClick={() => handleConflictResolution(true)} 
+                                            className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold"
+                                        >
+                                            Vorgeschlagene Zeit verwenden
+                                        </button>
+                                    )}
+                                    <button 
+                                        onClick={() => handleConflictResolution(false)} 
+                                        className="w-full py-3 bg-orange-500 text-white rounded-xl font-bold"
+                                    >
+                                        Trotzdem speichern
+                                    </button>
+                                    <button 
+                                        onClick={() => {setShowConflictModal(false); setConflictData(null);}} 
+                                        className="w-full py-3 text-gray-400 text-sm font-bold"
+                                    >
+                                        Abbrechen
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Habits Modal */}
+                    {showHabitsModal && (
+                        <div className="fixed inset-0 bg-white dark:bg-[#121212] z-50 flex flex-col slide-up">
+                            <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#121212] sticky top-0">
+                                <h2 className="text-2xl font-bold dark:text-white">🎯 Habit Tracker</h2>
+                                <button onClick={() => setShowHabitsModal(false)} className="p-2 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-full"><Icon name="x" size={24}/></button>
+                            </div>
+                            <div className="p-6 flex-1 overflow-y-auto bg-[#F8F9FA] dark:bg-[#000000]">
+                                {/* New Habit Form */}
+                                <div className="bg-white dark:bg-[#1E1E1E] rounded-[32px] p-6 mb-6 shadow-sm">
+                                    <h3 className="text-lg font-bold dark:text-white mb-4">Neues Habit</h3>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            className="flex-1 bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none" 
+                                            placeholder="Habit Name"
+                                            onKeyPress={e => {
+                                                if (e.key === 'Enter') {
+                                                    createHabit(e.target.value);
+                                                    e.target.value = '';
+                                                }
+                                            }}
+                                        />
+                                        <button 
+                                            onClick={e => {
+                                                const input = e.target.parentElement.querySelector('input');
+                                                if (input.value.trim()) {
+                                                    createHabit(input.value);
+                                                    input.value = '';
+                                                }
+                                            }}
+                                            className="px-6 bg-black dark:bg-white dark:text-black text-white rounded-2xl font-bold"
+                                        >
+                                            <Icon name="plus" size={20}/>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Habits List */}
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-sm font-bold uppercase text-gray-400">Meine Habits</h3>
+                                        <div className="text-xs text-gray-400">Fokus heute: {focusStats.todayMinutes}min | Woche: {focusStats.weekMinutes}min</div>
+                                    </div>
+                                    {habits.length === 0 ? (
+                                        <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-gray-800 rounded-3xl text-sm dark:text-gray-400">Keine Habits</div>
+                                    ) : habits.map(habit => {
+                                        const today = new Date();
+                                        today.setHours(0, 0, 0, 0);
+                                        const isLoggedToday = habitLogs.some(log => {
+                                            const logDate = log.date instanceof Date ? new Date(log.date) : new Date(log.date.toDate());
+                                            logDate.setHours(0, 0, 0, 0);
+                                            return log.habitId === habit.id && logDate.getTime() === today.getTime();
+                                        });
+                                        const streak = habitStreaks[habit.id] || 0;
+                                        
+                                        // Get last 7 days logs
+                                        const last7Days = [];
+                                        for (let i = 6; i >= 0; i--) {
+                                            const d = new Date(today);
+                                            d.setDate(today.getDate() - i);
+                                            const hasLog = habitLogs.some(log => {
+                                                const logDate = log.date instanceof Date ? new Date(log.date) : new Date(log.date.toDate());
+                                                logDate.setHours(0, 0, 0, 0);
+                                                return log.habitId === habit.id && logDate.getTime() === d.getTime();
+                                            });
+                                            last7Days.push({ date: d, hasLog });
+                                        }
+                                        
+                                        return (
+                                            <div key={habit.id} className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-5 shadow-sm">
+                                                <div className="flex items-start justify-between mb-3">
+                                                    <div className="flex-1">
+                                                        <h4 className="font-bold text-lg dark:text-white flex items-center gap-2">
+                                                            {habit.emoji && <span>{habit.emoji}</span>}
+                                                            {habit.name}
+                                                        </h4>
+                                                        <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                                            🔥 Streak: {streak} Tag{streak !== 1 ? 'e' : ''}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button 
+                                                            onClick={() => logHabit(habit.id)} 
+                                                            className={`p-3 rounded-xl font-bold text-sm ${isLoggedToday ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-[#2D2D2D] text-gray-600 dark:text-gray-400'}`}
+                                                        >
+                                                            {isLoggedToday ? '✓' : '○'}
+                                                        </button>
+                                                        <button onClick={() => deleteHabit(habit.id)} className="p-2 text-gray-400 hover:text-red-500">
+                                                            <Icon name="trash" size={16}/>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Last 7 days visualization */}
+                                                <div className="flex gap-1 mt-3">
+                                                    {last7Days.map((day, idx) => (
+                                                        <div 
+                                                            key={idx} 
+                                                            className={`flex-1 h-8 rounded ${day.hasLog ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'}`}
+                                                            title={day.date.toLocaleDateString('de-DE')}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Templates Modal */}
+                    {showTemplatesModal && (
+                        <div className="fixed inset-0 bg-white dark:bg-[#121212] z-50 flex flex-col slide-up">
+                            <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#121212] sticky top-0">
+                                <h2 className="text-2xl font-bold dark:text-white">📋 Kalender Templates</h2>
+                                <button onClick={() => setShowTemplatesModal(false)} className="p-2 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-full"><Icon name="x" size={24}/></button>
+                            </div>
+                            <div className="p-6 flex-1 overflow-y-auto bg-[#F8F9FA] dark:bg-[#000000]">
+                                <div className="space-y-3">
+                                    {templates.map(template => (
+                                        <div key={template.id} className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-5 shadow-sm">
+                                            <h4 className="font-bold text-lg dark:text-white mb-2">{template.name}</h4>
+                                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                                {template.events.length} Events über {Math.max(...template.events.map(e => e.dayOffset)) + 1} Tage
+                                            </p>
+                                            <button 
+                                                onClick={() => {
+                                                    applyTemplate(template, selectedDate);
+                                                    setShowTemplatesModal(false);
+                                                }}
+                                                className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold"
+                                            >
+                                                Anwenden ab {selectedDate.toLocaleDateString('de-DE')}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                {/* Copy Day Schedule */}
+                                <div className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-5 shadow-sm mt-6">
+                                    <h4 className="font-bold text-lg dark:text-white mb-4">📅 Tagesablauf kopieren</h4>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-400 uppercase ml-1">Von Datum</label>
+                                            <input 
+                                                type="date" 
+                                                id="copySourceDate"
+                                                className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl p-3 font-bold outline-none mt-1"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-400 uppercase ml-1">Zu Datum</label>
+                                            <input 
+                                                type="date" 
+                                                id="copyTargetDate"
+                                                className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl p-3 font-bold outline-none mt-1"
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                const source = document.getElementById('copySourceDate').value;
+                                                const target = document.getElementById('copyTargetDate').value;
+                                                if (source && target) {
+                                                    copyDaySchedule(new Date(source), new Date(target));
+                                                } else {
+                                                    showToast("Bitte beide Daten auswählen");
+                                                }
+                                            }}
+                                            className="w-full py-3 bg-green-500 text-white rounded-xl font-bold"
+                                        >
+                                            Tagesablauf kopieren
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {showVaultPanel && (
                         <VaultPanel
