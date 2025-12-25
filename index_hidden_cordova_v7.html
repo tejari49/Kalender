@@ -196,6 +196,16 @@
             for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
             return bytes;
         };
+        const MEDIA_B64_LIMIT = 900000; // ~900KB (~0.9MB) to stay below Firestore 1MB doc limit incl. base64 overhead
+        const IMAGE_EXT_PATTERN = /\.(jpe?g|png|webp|gif|heic|heif|bmp|avif)$/i;
+        const isImageFile = (file) => {
+            if (!file) return false;
+            const t = (file?.type || '').toLowerCase();
+            const fileName = file?.name || '';
+            const typeIsImage = t.startsWith('image/');
+            const nameMatches = IMAGE_EXT_PATTERN.test(fileName);
+            return typeIsImage || nameMatches;
+        };
 
         const canUseSecretCrypto = () => {
             return !!(window.crypto && window.crypto.subtle);
@@ -301,6 +311,12 @@
             };
 
             const getOtherUid = (conv) => (conv.memberIds || []).find(x => x !== user.uid);
+            const isImageMessage = (m) => {
+                if (!m) return false;
+                return m.kind === 'img'
+                    || (!!m.thumbCiphertext && !!m.thumbIv)
+                    || (!!m.storagePath && !!m.thumbCiphertext);
+            };
 
             const ensureSecretSetup = async () => {
                 if (!canUseSecretCrypto()) {
@@ -571,7 +587,8 @@
             };
 
             const openMedia = async (msg) => {
-                if (!ready || !msg?.storagePath || !msg?.ivFull) return;
+                if (!ready || !msg?.ivFull) return;
+                if (!msg.fullCiphertext && !msg.storagePath) return;
                 const conv = convs.find(c => c.id === activeConvId);
                 if (!conv) return;
                 const otherUid = getOtherUid(conv);
@@ -580,15 +597,22 @@
                 setMediaOverlay({ id: msg.id, mine: msg.senderId === user.uid, url: null, loading: true, msg, openedAt: Date.now() });
 
                 try {
-                    const url = await storage.ref(msg.storagePath).getDownloadURL();
-                    const resp = await fetch(url);
-                    const encBuf = await resp.arrayBuffer();
+                    let bytes = null;
+                    if (msg.fullCiphertext) {
+                        bytes = await decryptBytesFrom(otherUid, msg.fullCiphertext, msg.ivFull);
+                    } else if (msg.storagePath) {
+                        const url = await storage.ref(msg.storagePath).getDownloadURL();
+                        const resp = await fetch(url);
+                        const encBuf = await resp.arrayBuffer();
+                        const key = await getSharedKey(otherUid);
+                        const iv = base64ToBytes(msg.ivFull);
+                        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encBuf);
+                        bytes = new Uint8Array(pt);
+                    } else {
+                        throw new Error('Media content not available');
+                    }
 
-                    const key = await getSharedKey(otherUid);
-                    const iv = base64ToBytes(msg.ivFull);
-                    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encBuf);
-
-                    const blob = new Blob([pt], { type: msg.mime || 'image/jpeg' });
+                    const blob = new Blob([bytes], { type: msg.mime || 'image/jpeg' });
                     const objectUrl = URL.createObjectURL(blob);
 
                     if (overlayObjectUrlRef.current) URL.revokeObjectURL(overlayObjectUrlRef.current);
@@ -601,14 +625,10 @@
                 }
             };
 
+            // Hinweis: Absichtliche Freigabe – jeder Gesprächsteilnehmer darf per Doppeltap löschen
             const deleteMedia = async (msg) => {
                 if (!msg) return closeMedia();
-                if (msg.senderId !== user.uid) return closeMedia();
-
                 try {
-                    if (msg.storagePath) {
-                        await storage.ref(msg.storagePath).delete().catch(()=>{});
-                    }
                     await convCollection.doc(activeConvId).collection('messages').doc(msg.id).delete();
                     showToast('Gelöscht');
                 } catch (e) {
@@ -756,8 +776,8 @@
                 const otherUid = getOtherUid(conv);
                 if (!otherUid) return;
 
-                const t = (file.type || '').toLowerCase();
-                if (!t.startsWith('image/')) {
+                const looksLikeImage = isImageFile(file);
+                if (!looksLikeImage) {
                     showToast('Nur Bilder');
                     return;
                 }
@@ -776,14 +796,16 @@
 
                     const thumbEnc = await encryptBytesFor(otherUid, thumbBytes);
                     const fullEnc = await encryptBytesFor(otherUid, fullBytes);
-
-                    const storagePath = `secretMedia/${activeConvId}/${msgId}.bin`;
-                    await storage.ref(storagePath).put(new Blob([fullEnc.cipherBytes], { type: 'application/octet-stream' }));
+                    const fullCiphertext = bytesToBase64(fullEnc.cipherBytes);
+                    if (fullCiphertext.length > MEDIA_B64_LIMIT) { // Firestore 1MB limit safeguard
+                        showToast('Bild zu groß');
+                        return;
+                    }
 
                     await msgRef.set({
                         senderId: user.uid,
                         kind: 'img',
-                        storagePath,
+                        fullCiphertext,
                         ivFull: fullEnc.ivB64,
                         mime: 'image/jpeg',
                         thumbCiphertext: bytesToBase64(thumbEnc.cipherBytes),
@@ -901,14 +923,16 @@
 
                     const bytes = new Uint8Array(await blob.arrayBuffer());
                     const fullEnc = await encryptBytesFor(otherUid, bytes);
-
-                    const storagePath = `secretMedia/${activeConvId}/${msgId}.bin`;
-                    await storage.ref(storagePath).put(new Blob([fullEnc.cipherBytes], { type: 'application/octet-stream' }));
+                    const fullCiphertext = bytesToBase64(fullEnc.cipherBytes);
+                    if (fullCiphertext.length > MEDIA_B64_LIMIT) {
+                        showToast('Audio zu groß');
+                        return;
+                    }
 
                     await msgRef.set({
                         senderId: user.uid,
                         kind: 'aud',
-                        storagePath,
+                        fullCiphertext,
                         ivFull: fullEnc.ivB64,
                         mime: blob.type || 'audio/webm',
                         durationMs: Math.round(durationMs || 0),
@@ -1256,14 +1280,15 @@
                     const playedBy = d2.playedBy || [];
 
                     if (members.length && members.every(u => playedBy.includes(u))) {
-                        if (d2.storagePath) await storage.ref(d2.storagePath).delete().catch(()=>{});
+                        // Kein Storage-Cleanup nötig: Medien werden inline (Base64) gespeichert
                         await msgDoc.delete().catch(()=>{});
                     }
                 } catch (e) {}
             };
 
             const playAudio = async (msg) => {
-                if (!ready || !msg?.storagePath || !msg?.ivFull) return;
+                if (!ready || !msg?.ivFull) return;
+                if (!msg.fullCiphertext && !msg.storagePath) return;
                 if (!activeConvId) return;
                 if (playBusyId) return;
 
@@ -1274,15 +1299,21 @@
 
                 setPlayBusyId(msg.id);
                 try {
-                    const url = await storage.ref(msg.storagePath).getDownloadURL();
-                    const resp = await fetch(url);
-                    const encBuf = await resp.arrayBuffer();
-
-                    const key = await getSharedKey(otherUid);
-                    const iv = base64ToBytes(msg.ivFull);
-                    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encBuf);
-
-                    const blob = new Blob([pt], { type: msg.mime || 'audio/webm' });
+                    let bytes = null;
+                    if (msg.fullCiphertext) {
+                        bytes = await decryptBytesFrom(otherUid, msg.fullCiphertext, msg.ivFull);
+                    } else if (msg.storagePath) {
+                        const url = await storage.ref(msg.storagePath).getDownloadURL();
+                        const resp = await fetch(url);
+                        const encBuf = await resp.arrayBuffer();
+                        const key = await getSharedKey(otherUid);
+                        const iv = base64ToBytes(msg.ivFull);
+                        const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encBuf);
+                        bytes = new Uint8Array(pt);
+                    } else {
+                        throw new Error('Media content not available');
+                    }
+                    const blob = new Blob([bytes], { type: msg.mime || 'audio/webm' });
                     const objectUrl = URL.createObjectURL(blob);
 
                     const a = new Audio(objectUrl);
@@ -1389,7 +1420,7 @@
                         }
 
                         // Bild-Eintrag
-                        if (m.kind === 'img' || (m.storagePath && m.thumbCiphertext)) {
+                        if (isImageMessage(m)) {
                             let thumbDataUrl = null;
                             if (m.thumbCiphertext && m.thumbIv) {
                                 try {
@@ -1546,7 +1577,7 @@
                                                 {m.kind === 'img' ? (
                                                     <button type="button" onClick={() => openMedia(m)} className="block">
                                                         {m.thumbDataUrl ? (
-                                                            <img src={m.thumbDataUrl} className="w-44 h-44 object-cover rounded-2xl" />
+                                                            <img src={m.thumbDataUrl} className="w-44 h-44 object-cover rounded-2xl filter blur-sm" alt="Verschwommene Bildvorschau, Tippen zum Anzeigen" />
                                                         ) : (
                                                             <div className="w-44 h-44 rounded-2xl bg-gray-200 dark:bg-[#2D2D2D] flex items-center justify-center">
                                                                 <Icon name="image" />
@@ -1653,8 +1684,7 @@
                                 const openedAt = mediaOverlay.openedAt || 0;
                                 if (openedAt && (Date.now() - openedAt) < 450) return;
                                 if (mediaOverlay.loading) { closeMedia(); return; }
-                                if (mediaOverlay.mine) deleteMedia(mediaOverlay.msg);
-                                else closeMedia();
+                                deleteMedia(mediaOverlay.msg);
                             }}
                         >
                             {mediaOverlay.loading ? (
@@ -2895,6 +2925,7 @@
                                     const d = new Date(y, m, i);
                                     const isSel = d.toDateString() === selectedDate.toDateString();
                                     const isToday = d.toDateString() === todayStr;
+                                    const dow = d.getDay();
                                     
                                     // Shift Check
                                     const shiftEvent = events.find(e => e.type === 'shift' && e.date && e.date.toDateString() === d.toDateString() && (activeCalendarId === ALL_CALENDARS || e.calendarId === activeCalendarId));
@@ -2916,6 +2947,8 @@
 
                                     const cellStyle = shiftEvent ? { backgroundColor: shiftEvent.color + '60', color: 'inherit' } : {};
                                     const dragStyle = inDrag ? { backgroundColor: '#E5E7EB', color: 'black' } : {}; 
+                                    const weekendStyle = (!shiftEvent && (dow === 0 || dow === 6)) ? { backgroundColor: 'rgba(232, 240, 255, 0.7)' } : {};
+                                    const todayStyle = (!shiftEvent && isToday) ? { boxShadow: '0 0 0 2px rgba(255, 214, 102, 0.55)', backgroundColor: 'rgba(255, 249, 230, 0.9)' } : {};
 
                                     cells.push(
                                         <div key={i} className="aspect-square flex justify-center items-center">
@@ -2924,7 +2957,7 @@
                                                 onMouseDown={() => handlePointerDown(d)}
                                                 onMouseEnter={() => handlePointerEnter(d)}
                                                 onTouchStart={() => handlePointerDown(d)}
-                                                style={{...cellStyle, ...dragStyle, ...(shiftEvent ? {backgroundColor: shiftEvent.color} : {}) }}
+                                                style={{...cellStyle, ...dragStyle, ...weekendStyle, ...todayStyle, ...(shiftEvent ? {backgroundColor: shiftEvent.color} : {}) }}
                                                 className={`w-10 h-10 rounded-2xl flex flex-col items-center justify-center transition-all relative ${(isToday && todayBlinkToken) ? 'blink-attn' : ''} ${isSel && !shiftEvent && !inDrag ? 'bg-black text-white dark:bg-white dark:text-black shadow-lg' : 'hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white'}`}
                                             >
                                                 <span className={`text-sm font-medium relative z-10 ${shiftEvent ? 'text-white' : ''}`}>{i}</span>
