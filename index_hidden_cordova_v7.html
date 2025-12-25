@@ -3366,20 +3366,7 @@
                         </div>
                         <div className="flex gap-2">
                             <button onClick={() => setCurrentDate(new Date())} className={`px-3 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm font-bold text-xs uppercase dark:text-white ${todayBlinkToken ? "blink-attn" : ""}`}>Heute</button>
-                            <button onClick={() => setShowAvailabilityModal(true)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm" title="Terminfindung"><Icon name="calendar"/></button>
-                            <button onClick={() => setShowTodoModal(true)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm" title="TODOs"><Icon name="check"/></button>
-                            <div className="relative">
-                                <button onClick={() => setShowExportMenu(!showExportMenu)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm" title="Export"><Icon name="send"/></button>
-                                {showExportMenu && (
-                                    <div className="absolute top-12 right-0 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 w-48 z-20 slide-up">
-                                        <button onClick={() => { exportToICS(events); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">iCal/ICS Export</button>
-                                        {hasShiftPlan && <button onClick={() => { exportShiftsToPDF(); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">PDF Schichtplan</button>}
-                                    </div>
-                                )}
-                            </div>
-                            <button onClick={() => setShowTimeTrackingPanel(true)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm" title="Zeiterfassung"><Icon name="clock"/></button>
                             <button onClick={() => setShowSettingsModal(true)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm"><Icon name="settings"/></button>
-                            <button onClick={() => setShowAddEventModal(true)} className={`p-3 rounded-2xl shadow-lg transition-all text-white bg-black dark:bg-white dark:text-black`}><Icon name="plus"/></button>
                         </div>
                     </div>
 
@@ -3495,6 +3482,8 @@
                                 const isExpanded = expandedEventId === ev.id;
                                 const cal = myCalendars.find(c => c.id === ev.calendarId);
                                 const color = CALENDAR_COLORS.find(c => c.hex === cal?.color) || CALENDAR_COLORS[0];
+                                const isRequest = requests.some(r => r.id === ev.id);
+                                const isMyRequest = isRequest && ev.createdBy === user.uid;
                                 return (
                                     <div key={ev.id} className={`bg-white dark:bg-[#1E1E1E] rounded-3xl shadow-sm transition-all duration-300 overflow-hidden cursor-pointer ${isExpanded ? 'ring-1 ring-black/5 dark:ring-white/10' : ''}`} onClick={() => setExpandedEventId(isExpanded ? null : ev.id)}>
                                         <div className="p-4 flex items-center justify-between">
@@ -3503,7 +3492,10 @@
                                                     <Icon name={ev.recurrence ? "repeat" : "calendar"} size={20} />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-sm text-gray-800 dark:text-white">{ev.title}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-bold text-sm text-gray-800 dark:text-white">{ev.title}</p>
+                                                        {isRequest && <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 font-bold">ANFRAGE</span>}
+                                                    </div>
                                                     <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                         <span>{ev.time}</span>
                                                         {activeCalendarId === ALL_CALENDARS && <span className={`${color.text} font-bold px-1.5 py-0.5 rounded bg-white/50`}>{cal?.name}</span>}
@@ -3517,13 +3509,65 @@
                                                 <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">{ev.description || 'Keine Notiz'}</p>
                                                 <div className="flex justify-between items-center text-[10px] text-gray-400 uppercase font-bold">
                                                     <span>{ev.createdByName}</span>
-                                                    {!isDemo && <button onClick={(e) => { e.stopPropagation(); handleDeleteEvent(ev, false); }} className="flex gap-1 items-center text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"><Icon name="trash" size={12}/> Löschen</button>}
+                                                    <div className="flex gap-2">
+                                                        {isRequest && !isMyRequest && !isDemo && (
+                                                            <>
+                                                                <button onClick={(e) => { e.stopPropagation(); handleAcceptRequest(ev); }} className="flex gap-1 items-center text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded"><Icon name="check" size={12}/> Annehmen</button>
+                                                                <button onClick={(e) => { e.stopPropagation(); handleDeclineRequest(ev.id); }} className="flex gap-1 items-center text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"><Icon name="x" size={12}/> Ablehnen</button>
+                                                            </>
+                                                        )}
+                                                        {!isDemo && (isMyRequest || !isRequest) && <button onClick={(e) => { e.stopPropagation(); handleDeleteEvent(ev, isRequest); }} className="flex gap-1 items-center text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"><Icon name="trash" size={12}/> Löschen</button>}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 );
                             })}
+                        </div>
+                    </div>
+
+                    {/* BOTTOM ACTION BAR */}
+                    <div className={`fixed left-0 right-0 bg-white/95 dark:bg-[#1E1E1E]/95 backdrop-blur-lg border-t dark:border-gray-800 p-3 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] transition-all ${hasShiftPlan && activeCalendarId !== ALL_CALENDARS ? 'bottom-16' : 'bottom-0'}`}>
+                        <div className="max-w-lg mx-auto flex justify-around items-center gap-2">
+                            <button onClick={() => setShowAddEventModal(true)} className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-[#2D2D2D]" title="Neuer Termin">
+                                <div className="p-2 rounded-full bg-black text-white dark:bg-white dark:text-black">
+                                    <Icon name="plus" size={18}/>
+                                </div>
+                                <span className="text-[10px] font-bold dark:text-white">Termin</span>
+                            </button>
+                            <button onClick={() => setShowTodoModal(true)} className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-[#2D2D2D]" title="TODOs">
+                                <div className="p-2 rounded-full bg-gray-100 dark:bg-[#2D2D2D] text-gray-700 dark:text-gray-300">
+                                    <Icon name="check" size={18}/>
+                                </div>
+                                <span className="text-[10px] font-bold dark:text-white">TODOs</span>
+                            </button>
+                            <button onClick={() => setShowAvailabilityModal(true)} className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-[#2D2D2D]" title="Terminfindung">
+                                <div className="p-2 rounded-full bg-gray-100 dark:bg-[#2D2D2D] text-gray-700 dark:text-gray-300">
+                                    <Icon name="calendar" size={18}/>
+                                </div>
+                                <span className="text-[10px] font-bold dark:text-white">Poll</span>
+                            </button>
+                            <button onClick={() => setShowTimeTrackingPanel(true)} className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-[#2D2D2D]" title="Zeiterfassung">
+                                <div className="p-2 rounded-full bg-gray-100 dark:bg-[#2D2D2D] text-gray-700 dark:text-gray-300">
+                                    <Icon name="clock" size={18}/>
+                                </div>
+                                <span className="text-[10px] font-bold dark:text-white">Zeit</span>
+                            </button>
+                            <div className="relative">
+                                <button onClick={() => setShowExportMenu(!showExportMenu)} className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-[#2D2D2D]" title="Export">
+                                    <div className="p-2 rounded-full bg-gray-100 dark:bg-[#2D2D2D] text-gray-700 dark:text-gray-300">
+                                        <Icon name="send" size={18}/>
+                                    </div>
+                                    <span className="text-[10px] font-bold dark:text-white">Export</span>
+                                </button>
+                                {showExportMenu && (
+                                    <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 w-48 z-20 slide-up">
+                                        <button onClick={() => { exportToICS(events); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">iCal/ICS Export</button>
+                                        {hasShiftPlan && <button onClick={() => { exportShiftsToPDF(); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">PDF Schichtplan</button>}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
