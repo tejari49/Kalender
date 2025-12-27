@@ -277,7 +277,7 @@
             );
         };
 
-        // --- FIREBASE CONFIG ---
+        // --- FIREBASE CONFIG WITH ROBUST INITIALIZATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyAI4AlNcXHBVnlJtqBRl_4vmNvDEghpk88",
             authDomain: "planwise-cr.firebaseapp.com",
@@ -288,10 +288,36 @@
             measurementId: "G-30SGGBT9BY"
         };
 
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        const storage = firebase.storage();
+        // Initialize Firebase with error handling and fallback
+        let auth, db, storage;
+        try {
+            if (typeof firebase === 'undefined') {
+                throw new Error('Firebase SDK not loaded');
+            }
+            if (!firebase.apps || !firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            auth = firebase.auth ? firebase.auth() : null;
+            db = firebase.firestore ? firebase.firestore() : null;
+            storage = firebase.storage ? firebase.storage() : null;
+            
+            if (!auth || !db || !storage) {
+                console.error('Firebase services not fully available');
+            }
+        } catch (err) {
+            console.error('Firebase initialization error:', err);
+            // Attempt fallback loading
+            window.firebaseLoadFallback().then(() => {
+                if (typeof firebase !== 'undefined' && firebase.apps && !firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                    auth = firebase.auth();
+                    db = firebase.firestore();
+                    storage = firebase.storage();
+                }
+            }).catch(fallbackErr => {
+                console.error('Firebase fallback failed:', fallbackErr);
+            });
+        }
 
         // --- CONSTANTS ---
         const { useState, useEffect, useRef, useMemo } = React;
@@ -3291,12 +3317,27 @@
             };
 
             const handleDeleteCalendar = async (calId) => {
-                if (!user || !confirm("WARNUNG: Kalender unwiderruflich löschen?")) return;
+                if (!user || !calId) return;
+                
+                const calendar = myCalendars.find(c => c && c.id === calId);
+                const calName = calendar?.name || 'Kalender';
+                
+                // Double confirmation for safety
+                if (!confirm(`WARNUNG: "${calName}" unwiderruflich löschen?\n\nAlle Termine und Daten gehen verloren!`)) return;
+                if (!confirm(`Sind Sie wirklich sicher? Diese Aktion kann nicht rückgängig gemacht werden!`)) return;
+                
                 try {
+                    if (!db) {
+                        showToast('Datenbank nicht verfügbar');
+                        return;
+                    }
                     setExpandedSettingsId(null);
                     await db.collection('calendars').doc(calId).delete();
-                    showToast("Gelöscht");
-                } catch(e) { showToast("Fehler: " + e.message); }
+                    showToast("Kalender gelöscht");
+                } catch(e) {
+                    console.error('Delete calendar error:', e);
+                    showToast("Fehler beim Löschen: " + (e.message || 'Unbekannter Fehler'));
+                }
             };
 
             // MEMBER FUNCTIONS
@@ -3748,40 +3789,59 @@
             
             // Drag & Drop Handlers
             const handleEventDragStart = (e, event) => {
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('eventId', event.id);
-                e.dataTransfer.setData('calendarId', event.calendarId);
+                if (!e || !e.dataTransfer || !event) return;
+                try {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('eventId', event.id || '');
+                    e.dataTransfer.setData('calendarId', event.calendarId || '');
+                } catch (err) {
+                    console.error('Drag start error:', err);
+                }
             };
             
             const handleDayDrop = async (e, targetDate) => {
+                if (!e || !e.dataTransfer) return;
                 e.preventDefault();
-                const eventId = e.dataTransfer.getData('eventId');
-                const calendarId = e.dataTransfer.getData('calendarId');
                 
-                if (!eventId || !calendarId || isDemo) return;
-                
-                const event = events.find(ev => ev.id === eventId && ev.calendarId === calendarId);
-                if (!event || event.type === 'shift') return;
-                
-                const oldDate = event.date instanceof Date ? event.date : event.date.toDate();
-                const newDate = new Date(targetDate);
-                newDate.setHours(oldDate.getHours(), oldDate.getMinutes());
-                
-                // Check conflicts
-                const conflicts = checkEventConflicts(events.filter(e => e.calendarId === calendarId), 
-                    { time: `${oldDate.getHours().toString().padStart(2, '0')}:${oldDate.getMinutes().toString().padStart(2, '0')}`, 
-                      durationMin: event.durationMin || 60 }, 
-                    newDate, eventId);
-                
-                if (conflicts.length > 0) {
-                    showToast(`⚠️ Konflikt! ${conflicts.length} überlappende Events`);
-                    return;
+                try {
+                    const eventId = e.dataTransfer.getData('eventId');
+                    const calendarId = e.dataTransfer.getData('calendarId');
+                    
+                    if (!eventId || !calendarId || isDemo) return;
+                    
+                    const event = events.find(ev => ev && ev.id === eventId && ev.calendarId === calendarId);
+                    if (!event || event.type === 'shift' || !event.date) return;
+                    
+                    const oldDate = event.date instanceof Date ? event.date : event.date.toDate();
+                    const newDate = new Date(targetDate);
+                    if (isNaN(newDate.getTime()) || isNaN(oldDate.getTime())) return;
+                    
+                    newDate.setHours(oldDate.getHours(), oldDate.getMinutes());
+                    
+                    // Check conflicts
+                    const conflicts = checkEventConflicts(events.filter(e => e && e.calendarId === calendarId), 
+                        { time: `${oldDate.getHours().toString().padStart(2, '0')}:${oldDate.getMinutes().toString().padStart(2, '0')}`, 
+                          durationMin: event.durationMin || 60 }, 
+                        newDate, eventId);
+                    
+                    if (conflicts.length > 0) {
+                        showToast(`⚠️ Konflikt! ${conflicts.length} überlappende Events`);
+                        return;
+                    }
+                    
+                    if (!db) {
+                        showToast('Datenbank nicht verfügbar');
+                        return;
+                    }
+                    
+                    await db.collection('calendars').doc(calendarId).collection('events').doc(eventId).update({
+                        date: firebase.firestore.Timestamp.fromDate(newDate)
+                    });
+                    showToast("✓ Verschoben");
+                } catch (err) {
+                    console.error('Drop error:', err);
+                    showToast('Fehler beim Verschieben des Termins');
                 }
-                
-                await db.collection('calendars').doc(calendarId).collection('events').doc(eventId).update({
-                    date: firebase.firestore.Timestamp.fromDate(newDate)
-                });
-                showToast("✓ Verschoben");
             };
             
             // Multi-Select Handlers
@@ -3926,50 +3986,70 @@
             };
 
             const exportToICS = (events) => {
-                let icsContent = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//PlanWise//DE\nCALSCALE:GREGORIAN\n';
-                
-                events.forEach(event => {
-                    const dtstart = event.date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-                    const dtend = new Date(event.date.getTime() + MS_PER_HOUR).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-                    const dtstamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-                    
-                    icsContent += 'BEGIN:VEVENT\n';
-                    icsContent += `UID:${event.id}@planwise.de\n`;
-                    icsContent += `DTSTAMP:${dtstamp}\n`;
-                    icsContent += `DTSTART:${dtstart}\n`;
-                    icsContent += `DTEND:${dtend}\n`;
-                    icsContent += `SUMMARY:${escapeICSText(event.title)}\n`;
-                    if (event.description) icsContent += `DESCRIPTION:${escapeICSText(event.description)}\n`;
-                    if (event.recurrence) {
-                        const rrule = {
-                            'daily': 'FREQ=DAILY',
-                            'weekly': 'FREQ=WEEKLY',
-                            'biweekly': 'FREQ=WEEKLY;INTERVAL=2',
-                            'monthly': 'FREQ=MONTHLY',
-                            'yearly': 'FREQ=YEARLY'
-                        }[event.recurrence];
-                        if (rrule) {
-                            icsContent += `RRULE:${rrule}`;
-                            if (event.recurrenceEndDate) {
-                                const until = event.recurrenceEndDate.toDate().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-                                icsContent += `;UNTIL=${until}`;
-                            }
-                            icsContent += '\n';
-                        }
+                try {
+                    if (!events || !Array.isArray(events) || events.length === 0) {
+                        showToast("Keine Events zum Exportieren");
+                        return;
                     }
-                    icsContent += 'END:VEVENT\n';
-                });
-                
-                icsContent += 'END:VCALENDAR';
-                
-                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `kalender_${new Date().toISOString().split('T')[0]}.ics`;
-                link.click();
-                URL.revokeObjectURL(url);
-                showToast("ICS Export erfolgreich");
+                    
+                    let icsContent = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Kalender V Beta//DE\nCALSCALE:GREGORIAN\n';
+                    
+                    events.forEach(event => {
+                        if (!event || !event.date || !event.id) return;
+                        
+                        try {
+                            const eventDate = event.date instanceof Date ? event.date : event.date.toDate();
+                            const durationMs = (event.durationMin || 60) * 60000;
+                            
+                            const dtstart = eventDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                            const dtend = new Date(eventDate.getTime() + durationMs).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                            const dtstamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                            
+                            icsContent += 'BEGIN:VEVENT\n';
+                            icsContent += `UID:${event.id}@kalender.de\n`;
+                            icsContent += `DTSTAMP:${dtstamp}\n`;
+                            icsContent += `DTSTART:${dtstart}\n`;
+                            icsContent += `DTEND:${dtend}\n`;
+                            icsContent += `SUMMARY:${escapeICSText(event.title || 'Kein Titel')}\n`;
+                            if (event.description) icsContent += `DESCRIPTION:${escapeICSText(event.description)}\n`;
+                            if (event.recurrence) {
+                                const rrule = {
+                                    'daily': 'FREQ=DAILY',
+                                    'weekly': 'FREQ=WEEKLY',
+                                    'biweekly': 'FREQ=WEEKLY;INTERVAL=2',
+                                    'monthly': 'FREQ=MONTHLY',
+                                    'yearly': 'FREQ=YEARLY'
+                                }[event.recurrence];
+                                if (rrule) {
+                                    icsContent += `RRULE:${rrule}`;
+                                    if (event.recurrenceEndDate) {
+                                        const endDate = event.recurrenceEndDate.toDate ? event.recurrenceEndDate.toDate() : event.recurrenceEndDate;
+                                        const until = endDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                                        icsContent += `;UNTIL=${until}`;
+                                    }
+                                    icsContent += '\n';
+                                }
+                            }
+                            icsContent += 'END:VEVENT\n';
+                        } catch (eventErr) {
+                            console.error('Error exporting event:', event.id, eventErr);
+                        }
+                    });
+                    
+                    icsContent += 'END:VCALENDAR';
+                    
+                    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `kalender_${new Date().toISOString().split('T')[0]}.ics`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showToast("ICS Export erfolgreich");
+                } catch (err) {
+                    console.error('ICS export error:', err);
+                    showToast('Fehler beim ICS Export');
+                }
             };
 
             const exportShiftsToPDF = async () => {
