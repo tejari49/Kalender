@@ -112,6 +112,21 @@
             50% { opacity: 0.6; transform: scale(1.04); }
         }
         
+        @keyframes pulseRed {
+            0%, 100% { 
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+                transform: scale(1.05);
+            }
+        }
+        
+        .pulse-red {
+            animation: pulseRed 2s infinite;
+        }
+        
         /* Theme Palettes - Refined for Light (elegant) and Dark (AMOLED) */
         :root {
             /* Light Theme - Elegant white with soft contrast */
@@ -2863,6 +2878,7 @@
             const [showSearchPanel, setShowSearchPanel] = useState(false);
             const [showFilterMenu, setShowFilterMenu] = useState(false);
             const [showQuickActionsMenu, setShowQuickActionsMenu] = useState(false);
+            const [hasUnreadChat, setHasUnreadChat] = useState(false);
             const [calendarView, setCalendarView] = useState('month'); // 'month' or 'week'
             const [showBackupModal, setShowBackupModal] = useState(false);
             
@@ -2901,6 +2917,31 @@
             useEffect(() => {
                 localStorage.setItem('pw_notify', notificationsEnabled ? '1' : '0');
             }, [notificationsEnabled]);
+
+            // Monitor for new chat messages
+            useEffect(() => {
+                if (!user || !db) return;
+                
+                const lastViewed = parseInt(localStorage.getItem('lastChatViewed') || '0', 10);
+                
+                const unsub = db.collection('conversations')
+                    .where('participants', 'array-contains', user.uid)
+                    .onSnapshot((snapshot) => {
+                        let hasNew = false;
+                        snapshot.forEach((doc) => {
+                            const conv = doc.data();
+                            if (conv.lastMessageAt && conv.lastMessageAt.toMillis && conv.lastMessageAt.toMillis() > lastViewed) {
+                                // Check if the last message was from someone else
+                                if (conv.lastMessageBy && conv.lastMessageBy !== user.uid) {
+                                    hasNew = true;
+                                }
+                            }
+                        });
+                        setHasUnreadChat(hasNew);
+                    });
+                
+                return () => unsub();
+            }, [user, db]);
 
             // Berechtigungen beim Start (Kamera/Mikrofon/Speicher)
             const [permGateOpen, setPermGateOpen] = useState(false);
@@ -5098,7 +5139,7 @@
                             )}
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => setCurrentDate(new Date())} className={`px-3 bg-white dark:bg-[#0f0f0f] rounded-2xl shadow-sm font-bold text-xs uppercase dark:text-[#e8ecf5] ${todayBlinkToken ? "blink-attn" : ""}`}>Heute</button>
+                            <button onClick={() => {setCurrentDate(new Date()); setHasUnreadChat(false); localStorage.setItem('lastChatViewed', Date.now()); setPulseToday(true); setTimeout(() => setPulseToday(false), 2000);}} className={`px-3 bg-white dark:bg-[#0f0f0f] rounded-2xl shadow-sm font-bold text-xs uppercase dark:text-[#e8ecf5] ${todayBlinkToken ? "blink-attn" : ""} ${hasUnreadChat ? "pulse-red" : ""}`}>Heute</button>
                             <div className="relative">
                                 <button onClick={() => setShowQuickActionsMenu(!showQuickActionsMenu)} className="p-3 bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-black rounded-2xl shadow-sm transition-colors" title="Schnellaktionen">
                                     <Icon name="zap"/>
@@ -5106,7 +5147,7 @@
                                 {showQuickActionsMenu && (
                                     <div className="absolute top-14 right-0 bg-[#ffffff] dark:bg-[#0f0f0f] rounded-2xl shadow-xl border border-[#e2e8f0] dark:border-[#1f1f1f] p-2 w-64 z-20 slide-up">
                                         <h3 className="font-bold text-sm mb-2 px-2 dark:text-[#e8ecf5]">Schnellaktionen</h3>
-                                        <button onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); setShowQuickActionsMenu(false); setPulseToday(true); setTimeout(() => setPulseToday(false), 2000); }} className={`w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1a1a1a] dark:text-[#e8ecf5] text-sm flex items-center gap-2 ${pulseToday ? 'relative' : ''}`}>
+                                        <button onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); setShowQuickActionsMenu(false); setHasUnreadChat(false); localStorage.setItem('lastChatViewed', Date.now()); setPulseToday(true); setTimeout(() => setPulseToday(false), 2000); }} className={`w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1a1a1a] dark:text-[#e8ecf5] text-sm flex items-center gap-2 ${pulseToday ? 'relative' : ''} ${hasUnreadChat ? 'pulse-red' : ''}`}>
                                             {pulseToday && <span className="pulse-today absolute inset-0 rounded-xl bg-blue-400 dark:bg-blue-500 pointer-events-none"></span>}
                                             <Icon name="calendar" size={16}/> Zu heute springen
                                         </button>
