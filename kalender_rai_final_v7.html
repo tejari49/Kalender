@@ -270,6 +270,7 @@
                 grid: <><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></>,
                 filter: <><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></>,
                 zap: <><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></>,
+                download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></>,
                 tag: <><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></>,
                 briefcase: <><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></>
             };
@@ -2760,7 +2761,7 @@
             const secretNotifRef = useRef({ loaded: false, last: {} });
             const [showExportMenu, setShowExportMenu] = useState(false);
             const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
-            const [availabilityProposal, setAvailabilityProposal] = useState({ title: '', dates: [], votes: {}, targetCalId: '' });
+            const [availabilityProposal, setAvailabilityProposal] = useState({ title: '', description: '', dates: [], votes: {}, targetCalId: '', deadline: '', reminders: false, attachments: [] });
             
             // New Features
             const [searchQuery, setSearchQuery] = useState('');
@@ -2969,7 +2970,7 @@
             };
 
 
-            const [newEvent, setNewEvent] = useState({ title: '', description: '', time: '12:00', durationMin: 60, category: 'Arbeit', subCategory: '', targetCalId: '', recurrence: null, recurrenceEndDate: null, reminders: [], emoji: '', isFocus: false, isAllDay: false });
+            const [newEvent, setNewEvent] = useState({ title: '', description: '', time: '12:00', durationMin: 60, category: 'Arbeit', subCategory: '', targetCalId: '', recurrence: null, recurrenceEndDate: null, reminders: [], emoji: '', isFocus: false, isAllDay: false, attachments: [] });
             const [todos, setTodos] = useState([]);
             const [showTodoModal, setShowTodoModal] = useState(false);
             const [newTodo, setNewTodo] = useState({ title: '', description: '', dueDate: '', assignedTo: '', targetCalId: '', checklist: [], completed: false });
@@ -3051,6 +3052,10 @@
                     setUser(u);
                     if (u) {
                         setEditName(u.displayName || '');
+                        
+                        // Run attachment cleanup after user logs in
+                        cleanupExpiredAttachments();
+                        
                         return db.collection('users').doc(u.uid).onSnapshot(d => {
                             if(d.exists) {
                             const data = d.data();
@@ -3550,10 +3555,11 @@
                     emoji: newEvent.emoji || '',
                     isFocus: newEvent.isFocus || false,
                     isAllDay: newEvent.isAllDay || false,
-                    time: newEvent.isAllDay ? '' : newEvent.time
+                    time: newEvent.isAllDay ? '' : newEvent.time,
+                    attachments: newEvent.attachments || []
                 });
                 setShowAddEventModal(false);
-                setNewEvent({ ...newEvent, title: '', description: '', reminders: [], recurrence: null, recurrenceEndDate: null, durationMin: 60, emoji: '', isFocus: false, isAllDay: false, time: '12:00' });
+                setNewEvent({ ...newEvent, title: '', description: '', reminders: [], recurrence: null, recurrenceEndDate: null, durationMin: 60, emoji: '', isFocus: false, isAllDay: false, time: '12:00', attachments: [] });
                 showToast(isRequest ? "Anfrage gesendet" : "Gespeichert");
             };
 
@@ -3700,6 +3706,109 @@
                 await db.collection('calendars').doc(calId).collection('todos').doc(todoId).update({ checklist });
             };
 
+            // ATTACHMENTS - Base64 encoding with auto-delete after event ends
+            const handleFileUpload = async (file, maxSizeMB = 5) => {
+                return new Promise((resolve, reject) => {
+                    if (file.size > maxSizeMB * 1024 * 1024) {
+                        reject(new Error(`Datei zu groß (max ${maxSizeMB}MB)`));
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        resolve({
+                            name: file.name,
+                            type: file.type,
+                            size: file.size,
+                            data: e.target.result, // base64 data URL
+                            uploadedAt: new Date().toISOString()
+                        });
+                    };
+                    reader.onerror = () => reject(new Error('Fehler beim Lesen der Datei'));
+                    reader.readAsDataURL(file);
+                });
+            };
+            
+            const addAttachmentToEvent = async (file) => {
+                try {
+                    const attachment = await handleFileUpload(file);
+                    setNewEvent(prev => ({
+                        ...prev,
+                        attachments: [...(prev.attachments || []), attachment]
+                    }));
+                    showToast(`✓ Datei "${file.name}" hinzugefügt`);
+                } catch (err) {
+                    showToast(err.message || 'Fehler beim Hochladen');
+                }
+            };
+            
+            const removeAttachmentFromEvent = (index) => {
+                setNewEvent(prev => ({
+                    ...prev,
+                    attachments: prev.attachments.filter((_, i) => i !== index)
+                }));
+            };
+            
+            const addAttachmentToProposal = async (file) => {
+                try {
+                    const attachment = await handleFileUpload(file);
+                    setAvailabilityProposal(prev => ({
+                        ...prev,
+                        attachments: [...(prev.attachments || []), attachment]
+                    }));
+                    showToast(`✓ Datei "${file.name}" hinzugefügt`);
+                } catch (err) {
+                    showToast(err.message || 'Fehler beim Hochladen');
+                }
+            };
+            
+            const removeAttachmentFromProposal = (index) => {
+                setAvailabilityProposal(prev => ({
+                    ...prev,
+                    attachments: prev.attachments.filter((_, i) => i !== index)
+                }));
+            };
+            
+            const downloadAttachment = (attachment) => {
+                const link = document.createElement('a');
+                link.href = attachment.data;
+                link.download = attachment.name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+            
+            // Clean up expired event attachments (runs on app load)
+            const cleanupExpiredAttachments = async () => {
+                if (isDemo || !db || !user) return;
+                
+                try {
+                    const now = new Date();
+                    const calendars = await db.collection('calendars').where('memberIds', 'array-contains', user.uid).get();
+                    
+                    for (const calDoc of calendars.docs) {
+                        const eventsSnapshot = await db.collection('calendars').doc(calDoc.id).collection('events')
+                            .where('attachments', '!=', null).get();
+                        
+                        for (const eventDoc of eventsSnapshot.docs) {
+                            const event = eventDoc.data();
+                            const eventDate = event.date?.toDate();
+                            const eventEnd = new Date(eventDate);
+                            eventEnd.setMinutes(eventEnd.getMinutes() + (event.durationMin || 60));
+                            
+                            // If event ended more than 1 day ago, remove attachments
+                            if (eventEnd < now && (now - eventEnd) > 24 * 60 * 60 * 1000) {
+                                await db.collection('calendars').doc(calDoc.id).collection('events').doc(eventDoc.id)
+                                    .update({ attachments: [] });
+                                console.log(`Cleaned attachments from expired event: ${event.title}`);
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error cleaning attachments:', err);
+                }
+            };
+
             // AVAILABILITY & MEETING POLLING
             const createAvailabilityProposal = async () => {
                 if(isDemo || !availabilityProposal.title.trim() || availabilityProposal.dates.length === 0) {
@@ -3715,16 +3824,20 @@
 
                 await db.collection('calendars').doc(targetId).collection('proposals').add({
                     title: availabilityProposal.title,
+                    description: availabilityProposal.description || '',
                     dates: availabilityProposal.dates.map(d => firebase.firestore.Timestamp.fromDate(new Date(d))),
                     votes: {},
                     createdBy: user.uid,
                     createdByName: user.displayName,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    deadline: availabilityProposal.deadline ? firebase.firestore.Timestamp.fromDate(new Date(availabilityProposal.deadline)) : null,
+                    reminders: availabilityProposal.reminders || false,
+                    attachments: availabilityProposal.attachments || [],
                     memberIds
                 });
                 
                 setShowAvailabilityModal(false);
-                setAvailabilityProposal({ title: '', dates: [], votes: {}, targetCalId: '' });
+                setAvailabilityProposal({ title: '', description: '', dates: [], votes: {}, targetCalId: '', deadline: '', reminders: false, attachments: [] });
                 showToast("Umfrage erstellt");
             };
 
@@ -5179,6 +5292,32 @@
                                             <div className={`details-wrapper ${isExpanded ? 'open' : ''} bg-gray-50 dark:bg-[#252525]`}>
                                                 <div className="details-inner px-4 pb-4 pt-2 border-t border-gray-200 dark:border-gray-700">
                                                     <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">{ev.description || 'Keine Notiz'}</p>
+                                                    
+                                                    {/* Attachments */}
+                                                    {ev.attachments && ev.attachments.length > 0 && (
+                                                        <div className="mb-3">
+                                                            <div className="text-[10px] text-gray-400 uppercase font-bold mb-2">Anhänge</div>
+                                                            <div className="space-y-1">
+                                                                {ev.attachments.map((att, idx) => (
+                                                                    <button
+                                                                        key={idx}
+                                                                        onClick={(e) => { e.stopPropagation(); downloadAttachment(att); }}
+                                                                        className="w-full flex items-center justify-between p-2 bg-white dark:bg-[#1a1a1a] rounded-lg hover:bg-gray-100 dark:hover:bg-[#2D2D2D] transition-colors"
+                                                                    >
+                                                                        <div className="flex items-center gap-2 min-w-0">
+                                                                            <span className="text-lg">📎</span>
+                                                                            <div className="text-left min-w-0">
+                                                                                <p className="text-xs font-bold dark:text-[#e8ecf5] truncate">{att.name}</p>
+                                                                                <p className="text-[10px] text-gray-400">{(att.size / 1024).toFixed(1)} KB</p>
+                                                                            </div>
+                                                                        </div>
+                                                                        <Icon name="download" size={14} className="text-gray-400 flex-shrink-0"/>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    
                                                     <div className="flex justify-between items-center text-[10px] text-gray-400 uppercase font-bold">
                                                         <span>{ev.createdByName}</span>
                                                         <div className="flex gap-2">
@@ -5699,6 +5838,53 @@
                                             {categories[newEvent.category]?.map(sc => <option key={sc} value={sc}>{sc}</option>)}
                                         </select>
                                     </div>
+                                    
+                                    {/* Attachments */}
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Anhänge (max 5MB pro Datei)</label>
+                                        <input 
+                                            type="file" 
+                                            id="eventFileInput"
+                                            className="hidden"
+                                            onChange={e => {
+                                                if (e.target.files && e.target.files[0]) {
+                                                    addAttachmentToEvent(e.target.files[0]);
+                                                    e.target.value = '';
+                                                }
+                                            }}
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => document.getElementById('eventFileInput').click()}
+                                            className="w-full py-3 bg-gray-100 dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 rounded-xl font-bold text-sm mt-2 hover:bg-gray-200 dark:hover:bg-[#2D2D2D] transition-colors"
+                                        >
+                                            📎 Datei anhängen
+                                        </button>
+                                        
+                                        {newEvent.attachments && newEvent.attachments.length > 0 && (
+                                            <div className="mt-3 space-y-2">
+                                                {newEvent.attachments.map((att, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-xl">
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-bold dark:text-[#e8ecf5] truncate">{att.name}</p>
+                                                            <p className="text-xs text-gray-400">{(att.size / 1024).toFixed(1)} KB</p>
+                                                        </div>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => removeAttachmentFromEvent(idx)}
+                                                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                        >
+                                                            <Icon name="trash" size={16}/>
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                                                    ⚠️ Anhänge werden 24h nach Event-Ende automatisch gelöscht
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    
                                     <div className="pt-4 flex flex-col gap-2">
                                         <button onClick={()=>handleCreateEvent()} className="w-full py-4 bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-black rounded-2xl font-bold shadow-lg transition-colors">Speichern</button>
                                         <button onClick={()=>handleCreateEvent(true)} className="w-full py-4 bg-gray-100 dark:bg-[#1a1a1a] text-gray-600 dark:text-[#e8ecf5] rounded-2xl font-bold">Als Anfrage senden</button>
@@ -5823,6 +6009,8 @@
                                         )}
                                         <input className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 font-bold outline-none" placeholder="Titel (z.B. Team-Meeting)" value={availabilityProposal.title} onChange={e => setAvailabilityProposal({...availabilityProposal, title: e.target.value})} />
                                         
+                                        <textarea className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 outline-none resize-none h-20" placeholder="Beschreibung (optional)..." value={availabilityProposal.description} onChange={e => setAvailabilityProposal({...availabilityProposal, description: e.target.value})} />
+                                        
                                         <div>
                                             <label className="text-xs font-bold text-gray-400 uppercase ml-1 mb-2 block">Terminvorschläge</label>
                                             {availabilityProposal.dates.map((date, idx) => (
@@ -5836,6 +6024,67 @@
                                                 </div>
                                             ))}
                                             <button onClick={() => setAvailabilityProposal({...availabilityProposal, dates: [...availabilityProposal.dates, '']})} className="text-sm text-blue-500 font-bold">+ Termin hinzufügen</button>
+                                        </div>
+                                        
+                                        {/* Deadline */}
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-400 uppercase ml-1">Abstimmungs-Deadline (optional)</label>
+                                            <input type="date" className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 mt-1 font-bold outline-none" value={availabilityProposal.deadline} onChange={e => setAvailabilityProposal({...availabilityProposal, deadline: e.target.value})} />
+                                        </div>
+                                        
+                                        {/* Reminders Toggle */}
+                                        <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-xl">
+                                            <input 
+                                                type="checkbox" 
+                                                id="pollReminders"
+                                                className="custom-checkbox"
+                                                checked={availabilityProposal.reminders}
+                                                onChange={e => setAvailabilityProposal({...availabilityProposal, reminders: e.target.checked})}
+                                            />
+                                            <label htmlFor="pollReminders" className="text-sm font-bold dark:text-[#e8ecf5] cursor-pointer select-none">🔔 Teilnehmer bei Deadline erinnern</label>
+                                        </div>
+                                        
+                                        {/* Attachments */}
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-400 uppercase ml-1">Anhänge (z.B. Agenda, Dokumente)</label>
+                                            <input 
+                                                type="file" 
+                                                id="proposalFileInput"
+                                                className="hidden"
+                                                onChange={e => {
+                                                    if (e.target.files && e.target.files[0]) {
+                                                        addAttachmentToProposal(e.target.files[0]);
+                                                        e.target.value = '';
+                                                    }
+                                                }}
+                                            />
+                                            <button 
+                                                type="button"
+                                                onClick={() => document.getElementById('proposalFileInput').click()}
+                                                className="w-full py-3 bg-gray-100 dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 rounded-xl font-bold text-sm mt-2 hover:bg-gray-200 dark:hover:bg-[#2D2D2D] transition-colors"
+                                            >
+                                                📎 Datei anhängen
+                                            </button>
+                                            
+                                            {availabilityProposal.attachments && availabilityProposal.attachments.length > 0 && (
+                                                <div className="mt-3 space-y-2">
+                                                    {availabilityProposal.attachments.map((att, idx) => (
+                                                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-xl">
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-bold dark:text-[#e8ecf5] truncate">{att.name}</p>
+                                                                <p className="text-xs text-gray-400">{(att.size / 1024).toFixed(1)} KB</p>
+                                                            </div>
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => removeAttachmentFromProposal(idx)}
+                                                                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                            >
+                                                                <Icon name="trash" size={16}/>
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <button onClick={createAvailabilityProposal} className="w-full py-4 bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-[#000000] transition-colors rounded-2xl font-bold shadow-lg">Umfrage Erstellen</button>
@@ -5858,8 +6107,43 @@
                                                         <h4 className="font-bold text-lg dark:text-white">{proposal.title}</h4>
                                                         {activeCalendarId === ALL_CALENDARS && <span className={`${color.text} text-xs px-2 py-0.5 rounded-full ${color.light}`}>{cal?.name}</span>}
                                                     </div>
-                                                    <p className="text-xs text-gray-400">Erstellt von {proposal.createdByName}</p>
+                                                    {proposal.description && (
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{proposal.description}</p>
+                                                    )}
+                                                    <div className="flex items-center gap-3">
+                                                        <p className="text-xs text-gray-400">Erstellt von {proposal.createdByName}</p>
+                                                        {proposal.deadline && (
+                                                            <span className="text-xs text-amber-600 dark:text-amber-400">
+                                                                ⏰ Deadline: {new Date(proposal.deadline.toDate()).toLocaleDateString('de-DE')}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
+                                                
+                                                {/* Attachments */}
+                                                {proposal.attachments && proposal.attachments.length > 0 && (
+                                                    <div className="mb-4 p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-xl">
+                                                        <div className="text-xs font-bold text-gray-400 uppercase mb-2">Anhänge</div>
+                                                        <div className="space-y-1">
+                                                            {proposal.attachments.map((att, attIdx) => (
+                                                                <button
+                                                                    key={attIdx}
+                                                                    onClick={() => downloadAttachment(att)}
+                                                                    className="w-full flex items-center justify-between p-2 bg-white dark:bg-[#0f0f0f] rounded-lg hover:bg-gray-100 dark:hover:bg-[#2D2D2D] transition-colors"
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span>📎</span>
+                                                                        <div className="text-left">
+                                                                            <p className="text-xs font-bold dark:text-[#e8ecf5]">{att.name}</p>
+                                                                            <p className="text-[10px] text-gray-400">{(att.size / 1024).toFixed(1)} KB</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <Icon name="download" size={14} className="text-gray-400"/>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 <div className="space-y-2">
                                                     {proposal.dates.map((date, idx) => {
