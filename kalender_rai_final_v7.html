@@ -3965,7 +3965,9 @@
                     'daily': 1,
                     'weekly': 7,
                     'biweekly': 14,
-                    'monthly': 0 // handled separately
+                    'triweekly': 21,
+                    'monthly': 0, // handled separately
+                    'quarterly': 0, // handled separately
                 }[event.recurrence] || 1;
                 
                 if (event.recurrence === 'monthly') {
@@ -3989,8 +3991,26 @@
                         const nextDay = Math.min(eventDate.getDate(), maxDay);
                         currentDate = new Date(nextYear, adjustedMonth, nextDay);
                     }
+                } else if (event.recurrence === 'quarterly') {
+                    // Every 3 months
+                    const targetDay = Math.min(eventDate.getDate(), new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate());
+                    currentDate = new Date(eventDate);
+                    
+                    // Fast-forward to target month area
+                    while (currentDate < monthStart && currentDate <= endDate) {
+                        currentDate.setMonth(currentDate.getMonth() + 3);
+                    }
+                    
+                    if (currentDate.getMonth() === monthStart.getMonth() && currentDate.getFullYear() === monthStart.getFullYear()) {
+                        if (currentDate >= eventDate && currentDate <= endDate) {
+                            const dateStr = currentDate.toDateString();
+                            if (!exceptions.includes(dateStr)) {
+                                results.push({ ...event, date: new Date(currentDate), isRecurrence: true });
+                            }
+                        }
+                    }
                 } else {
-                    // For daily, weekly, biweekly
+                    // For daily, weekly, biweekly, triweekly
                     // Fast-forward to near the target month using milliseconds
                     if (currentDate < monthStart) {
                         const daysDiff = Math.floor((monthStart - currentDate) / MS_PER_DAY);
@@ -4054,7 +4074,9 @@
                                     'daily': 'FREQ=DAILY',
                                     'weekly': 'FREQ=WEEKLY',
                                     'biweekly': 'FREQ=WEEKLY;INTERVAL=2',
+                                    'triweekly': 'FREQ=WEEKLY;INTERVAL=3',
                                     'monthly': 'FREQ=MONTHLY',
+                                    'quarterly': 'FREQ=MONTHLY;INTERVAL=3',
                                     'yearly': 'FREQ=YEARLY'
                                 }[event.recurrence];
                                 if (rrule) {
@@ -5153,7 +5175,9 @@
                                             <option value="daily">Täglich</option>
                                             <option value="weekly">Wöchentlich</option>
                                             <option value="biweekly">14-tägig</option>
+                                            <option value="triweekly">21-tägig (alle 3 Wochen)</option>
                                             <option value="monthly">Monatlich</option>
+                                            <option value="quarterly">Vierteljährlich</option>
                                             <option value="yearly">Jährlich</option>
                                         </select>
                                     </div>
