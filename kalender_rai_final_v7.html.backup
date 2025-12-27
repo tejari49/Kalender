@@ -1890,16 +1890,16 @@
             const activeName = activeOtherUid ? (profiles[activeOtherUid]?.username || shortUid(activeOtherUid)) : '—';
 
             return (
-                <div className="fixed inset-0 z-[120] bg-[#f8f9fb] dark:bg-[#000000] flex flex-col">
+                <div className="fixed inset-0 z-[120] bg-white dark:bg-[#121212] flex flex-col">
                     {/* Topbar */}
-                    <div className="px-6 py-5 border-b border-[#e2e8f0] dark:border-[#1f1f1f] flex items-center justify-between bg-[#f8f9fb] dark:bg-[#000000]">
+                    <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-[#121212]">
                         <div className="flex items-center gap-3">
                             {view === 'detail' ? (
                                 <button onClick={() => { if (recOn) stopRec(false); setView('list'); setActiveConvId(null); }} className="p-2 -ml-2 rounded-full hover:bg-gray-50 dark:hover:bg-[#1E1E1E]">
                                     <Icon name="chevronLeft" />
                                 </button>
                             ) : (
-                                <div className="w-10 h-10 rounded-2xl bg-gray-50 dark:bg-[#0f0f0f] flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-2xl bg-gray-50 dark:bg-[#1E1E1E] flex items-center justify-center">
                                     <Icon name="lock" />
                                 </div>
                             )}
@@ -1911,12 +1911,12 @@
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => { notificationsEnabled ? setNotificationsEnabled(false) : requestNotifications(); }}
-                                className={`p-3 rounded-2xl shadow-sm ${notificationsEnabled ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-gray-100 dark:bg-[#0f0f0f] dark:text-white'}`}
+                                className={`p-3 rounded-2xl shadow-sm ${notificationsEnabled ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-gray-100 dark:bg-[#1E1E1E] dark:text-white'}`}
                                 title="Benachrichtigungen"
                             >
                                 <Icon name="bell" />
                             </button>
-                            <button onClick={() => { if (recOn) stopRec(false); onClose(); }} className="p-3 bg-gray-100 dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-2xl shadow-sm">
+                            <button onClick={() => { if (recOn) stopRec(false); onClose(); }} className="p-3 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm">
                                 <Icon name="x" />
                             </button>
                         </div>
@@ -1925,25 +1925,25 @@
                     {/* Content */}
                     {view === 'list' ? (
                         <div className="p-6 overflow-y-auto flex-1 bg-[#F8F9FA] dark:bg-[#000000]">
-                            <div className="bg-[#ffffff] dark:bg-[#0f0f0f] p-5 rounded-[28px] shadow-sm mb-6">
+                            <div className="bg-white dark:bg-[#1E1E1E] p-5 rounded-[28px] shadow-sm mb-6">
                                 <div className="text-xs font-bold uppercase text-gray-400 mb-2">Dein Code</div>
                                 <div className="flex items-center justify-between gap-3">
                                     <div className="font-bold tracking-wider dark:text-white">{mySecretId || '—'}</div>
                                     <button
                                         onClick={() => { if (mySecretId) { navigator.clipboard.writeText(mySecretId); showToast('Code kopiert'); } }}
-                                        className="text-xs font-bold bg-gray-100 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] px-3 py-2 rounded-xl"
+                                        className="text-xs font-bold bg-gray-100 dark:bg-[#2D2D2D] dark:text-white px-3 py-2 rounded-xl"
                                     >
                                         Kopieren
                                     </button>
                                 </div>
 </div>
 
-                            <div className="bg-[#ffffff] dark:bg-[#0f0f0f] p-5 rounded-[28px] shadow-sm mb-6">
+                            <div className="bg-white dark:bg-[#1E1E1E] p-5 rounded-[28px] shadow-sm mb-6">
                                 <div className="text-xs font-bold uppercase text-gray-400 mb-3">Neue Verknüpfung (nur via Code)</div>
                                 <div className="flex gap-2 items-center">
                                     
                                     <input
-                                        className="flex-1 bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl px-4 py-3 text-sm font-bold outline-none"
+                                        className="flex-1 bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl px-4 py-3 text-sm font-bold outline-none"
                                         placeholder="Code oder UID"
                                         value={idInput}
                                         onChange={e => setIdInput(e.target.value)}
@@ -1951,7 +1951,7 @@
                                     <button
                                         disabled={busy || !ready}
                                         onClick={connectById}
-                                        className="bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-[#000000] transition-colors px-4 rounded-2xl font-bold"
+                                        className="bg-black dark:bg-white dark:text-black text-white px-4 rounded-2xl font-bold"
                                     >
                                         {busy ? '…' : 'Verbinden'}
                                     </button>
@@ -1961,7 +1961,7 @@
                             <div className="text-xs font-bold uppercase text-gray-400 mb-3 ml-1">Verknüpfungen</div>
                             <div className="space-y-3">
                                 {convs.length === 0 ? (
-                                    <div className="text-center py-10 opacity-50 border-2 border-dashed dark:border-[#1f1f1f] rounded-3xl text-sm dark:text-gray-400">
+                                    <div className="text-center py-10 opacity-50 border-2 border-dashed dark:border-gray-800 rounded-3xl text-sm dark:text-gray-400">
                                         Keine Verbindungen
                                     </div>
                                 ) : convs.map(c => {
@@ -1969,9 +1969,9 @@
                                     const name = profiles[other]?.username || shortUid(other);
                                     const last = c.lastMessageAt?.toDate?.() ? c.lastMessageAt.toDate().toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
                                     return (
-                                        <button key={c.id} onClick={() => { setActiveConvId(c.id); setView('detail'); }} className="w-full text-left bg-[#ffffff] dark:bg-[#0f0f0f] p-5 rounded-[28px] shadow-sm flex items-center justify-between">
+                                        <button key={c.id} onClick={() => { setActiveConvId(c.id); setView('detail'); }} className="w-full text-left bg-white dark:bg-[#1E1E1E] p-5 rounded-[28px] shadow-sm flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-2xl bg-gray-50 dark:bg-[#1a1a1a] flex items-center justify-center">
+                                                <div className="w-10 h-10 rounded-2xl bg-gray-50 dark:bg-[#2D2D2D] flex items-center justify-center">
                                                     <Icon name="user" />
                                                 </div>
                                                 <div>
@@ -1989,20 +1989,20 @@
                         <div className="flex-1 flex flex-col bg-[#F8F9FA] dark:bg-[#000000]">
                             <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-3">
                                 {messages.length === 0 ? (
-                                    <div className="text-center py-10 opacity-50 border-2 border-dashed dark:border-[#1f1f1f] rounded-3xl text-sm dark:text-gray-400">
+                                    <div className="text-center py-10 opacity-50 border-2 border-dashed dark:border-gray-800 rounded-3xl text-sm dark:text-gray-400">
                                         Keine Einträge
                                     </div>
                                 ) : messages.filter(m => !hiddenIds[m.id]).map(m => {
                                     const mine = m.senderId === user.uid;
                                     return (
                                         <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                                            <div className={`max-w-[80%] rounded-3xl ${m.kind === 'img' ? 'p-2' : (m.kind === 'aud' ? 'px-3 py-2' : 'px-4 py-3')} shadow-sm ${mine ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-white dark:bg-[#0f0f0f] dark:text-white'}`}>
+                                            <div className={`max-w-[80%] rounded-3xl ${m.kind === 'img' ? 'p-2' : (m.kind === 'aud' ? 'px-3 py-2' : 'px-4 py-3')} shadow-sm ${mine ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-white dark:bg-[#1E1E1E] dark:text-white'}`}>
                                                 {m.kind === 'img' ? (
                                                     <button type="button" onClick={() => openMedia(m)} className="block">
                                                         {m.thumbDataUrl ? (
                                                             <img src={m.thumbDataUrl} className="w-44 h-44 object-cover rounded-2xl filter blur-sm" alt="Verschwommene Bildvorschau, Tippen zum Anzeigen" />
                                                         ) : (
-                                                            <div className="w-44 h-44 rounded-2xl bg-gray-200 dark:bg-[#1a1a1a] flex items-center justify-center">
+                                                            <div className="w-44 h-44 rounded-2xl bg-gray-200 dark:bg-[#2D2D2D] flex items-center justify-center">
                                                                 <Icon name="image" />
                                                             </div>
                                                         )}
@@ -2014,7 +2014,7 @@
                                                         className="flex items-center gap-3"
                                                         title="Audio abspielen"
                                                     >
-                                                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${mine ? 'bg-white/15 dark:bg-black/15' : 'bg-gray-100 dark:bg-[#1a1a1a]'}`}>
+                                                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${mine ? 'bg-white/15 dark:bg-black/15' : 'bg-gray-100 dark:bg-[#2D2D2D]'}`}>
                                                             {playBusyId === m.id ? (
                                                                 <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                                                             ) : (
@@ -2044,7 +2044,7 @@
                                     );
                                 })}
                             </div>
-                            <div className="p-4 border-t border-[#e2e8f0] dark:border-[#1f1f1f] bg-[#f8f9fb] dark:bg-[#000000]">
+                            <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#121212]">
                                 <div className="flex gap-2 items-center">
                                     <input
                                         ref={libraryInputRef}
@@ -2073,7 +2073,7 @@
                                         type="button"
                                         disabled={busy || !ready || !activeConvId || recOn}
                                         onClick={openGallery}
-                                        className="p-3 rounded-2xl bg-gray-100 dark:bg-[#0f0f0f] dark:text-[#e8ecf5] shadow-sm disabled:opacity-50"
+                                        className="p-3 rounded-2xl bg-gray-100 dark:bg-[#1E1E1E] dark:text-white shadow-sm disabled:opacity-50"
                                     >
                                         <Icon name="image" />
                                     </button>
@@ -2081,7 +2081,7 @@
                                         type="button"
                                         disabled={busy || !ready || !activeConvId || recOn}
                                         onClick={openCamera}
-                                        className="p-3 rounded-2xl bg-gray-100 dark:bg-[#0f0f0f] dark:text-[#e8ecf5] shadow-sm disabled:opacity-50"
+                                        className="p-3 rounded-2xl bg-gray-100 dark:bg-[#1E1E1E] dark:text-white shadow-sm disabled:opacity-50"
                                     >
                                         <Icon name="camera" />
                                     </button>
@@ -2089,12 +2089,12 @@
                                         type="button"
                                         disabled={busy || !ready || !activeConvId}
                                         onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); recOn ? stopRec(true) : startRec(); }}
-                                        className={`p-3 rounded-2xl shadow-sm ${recOn ? 'bg-black text-white dark:bg-white dark:text-black animate-pulse' : 'bg-gray-100 dark:bg-[#0f0f0f] dark:text-white'} disabled:opacity-50`}
+                                        className={`p-3 rounded-2xl shadow-sm ${recOn ? 'bg-black text-white dark:bg-white dark:text-black animate-pulse' : 'bg-gray-100 dark:bg-[#1E1E1E] dark:text-white'} disabled:opacity-50`}
                                     >
                                         <Icon name={recOn ? 'stop' : 'mic'} />
                                     </button>
                                     <input
-                                        className="flex-1 bg-gray-100 dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-2xl px-4 py-3 text-sm font-bold outline-none"
+                                        className="flex-1 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-2xl px-4 py-3 text-sm font-bold outline-none"
                                         placeholder="Eintrag…"
                                         value={draft}
                                         onChange={e => setDraft(e.target.value)}
@@ -2409,7 +2409,7 @@
             if (loading) {
                 return (
                     <div className="fixed inset-0 z-[200] bg-black/50 flex items-end md:items-center justify-center p-4 fade-in">
-                        <div className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-[32px] w-full max-w-md p-8 text-center">
+                        <div className="bg-white dark:bg-[#1E1E1E] rounded-[32px] w-full max-w-md p-8 text-center">
                             <div className="text-gray-400">Lade Zeiterfassung...</div>
                         </div>
                     </div>
@@ -2418,10 +2418,10 @@
 
             return (
                 <div className="fixed inset-0 z-[200] bg-black/50 flex items-end md:items-center justify-center p-4 fade-in">
-                    <div className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-[32px] w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl slide-up">
-                        <div className="p-6 border-b border-[#e2e8f0] dark:border-[#1f1f1f] flex justify-between items-center">
+                    <div className="bg-white dark:bg-[#1E1E1E] rounded-[32px] w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl slide-up">
+                        <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
                             <h2 className="text-2xl font-bold dark:text-white">⏱️ Zeiterfassung</h2>
-                            <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-full">
+                            <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-[#2D2D2D] dark:text-white rounded-full">
                                 <Icon name="x" size={24}/>
                             </button>
                         </div>
@@ -2465,11 +2465,11 @@
 
                             {/* Statistics */}
                             <div className="grid grid-cols-2 gap-4 mb-6">
-                                <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl p-4">
+                                <div className="bg-gray-50 dark:bg-[#2D2D2D] rounded-2xl p-4">
                                     <div className="text-xs text-gray-400 mb-1">Gesamt Stunden</div>
                                     <div className="text-2xl font-bold dark:text-white">{formatDuration(totalHours)}</div>
                                 </div>
-                                <div className="bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl p-4">
+                                <div className="bg-gray-50 dark:bg-[#2D2D2D] rounded-2xl p-4">
                                     <div className="text-xs text-gray-400 mb-1">Ø pro Tag</div>
                                     <div className="text-2xl font-bold dark:text-white">{formatDuration(avgHoursPerDay)}</div>
                                 </div>
@@ -2477,22 +2477,22 @@
 
                             {/* View Type Selector */}
                             <div className="mb-4">
-                                <div className="flex gap-2 bg-gray-100 dark:bg-[#1a1a1a] p-1 rounded-xl">
+                                <div className="flex gap-2 bg-gray-100 dark:bg-[#2D2D2D] p-1 rounded-xl">
                                     <button 
                                         onClick={() => setViewType('week')}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${viewType === 'week' ? 'bg-white dark:bg-[#0f0f0f] text-black dark:text-[#e8ecf5] shadow' : 'text-gray-500'}`}
+                                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${viewType === 'week' ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow' : 'text-gray-500'}`}
                                     >
                                         Woche
                                     </button>
                                     <button 
                                         onClick={() => setViewType('month')}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${viewType === 'month' ? 'bg-white dark:bg-[#0f0f0f] text-black dark:text-[#e8ecf5] shadow' : 'text-gray-500'}`}
+                                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${viewType === 'month' ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow' : 'text-gray-500'}`}
                                     >
                                         Monat
                                     </button>
                                     <button 
                                         onClick={() => setViewType('year')}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${viewType === 'year' ? 'bg-white dark:bg-[#0f0f0f] text-black dark:text-[#e8ecf5] shadow' : 'text-gray-500'}`}
+                                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all ${viewType === 'year' ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow' : 'text-gray-500'}`}
                                     >
                                         Jahr
                                     </button>
@@ -2508,7 +2508,7 @@
                                     >
                                         <Icon name="chevronLeft" size={16}/>
                                     </button>
-                                    <span className="text-sm font-bold dark:text-[#e8ecf5] min-w-[180px] text-center">
+                                    <span className="text-sm font-bold dark:text-white min-w-[180px] text-center">
                                         {getViewLabel()}
                                     </span>
                                     <button 
@@ -2528,7 +2528,7 @@
                                     </button>
                                     <button 
                                         onClick={() => setShowHistory(!showHistory)}
-                                        className="text-xs bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-[#000000] transition-colors px-3 py-2 rounded-full font-bold"
+                                        className="text-xs bg-black dark:bg-white dark:text-black text-white px-3 py-2 rounded-full font-bold"
                                     >
                                         {showHistory ? 'Verbergen' : 'Historie'}
                                     </button>
@@ -2545,7 +2545,7 @@
                                         </div>
                                     ) : (
                                         timeEntries.map(entry => (
-                                            <div key={entry.id} className="bg-white dark:bg-[#1a1a1a] border border-[#e2e8f0] dark:border-gray-700 rounded-2xl p-4">
+                                            <div key={entry.id} className="bg-white dark:bg-[#2D2D2D] border border-gray-100 dark:border-gray-700 rounded-2xl p-4">
                                                 {editingEntry === entry.id ? (
                                                     // Edit Mode
                                                     <div className="space-y-3">
@@ -2555,7 +2555,7 @@
                                                                 type="datetime-local" 
                                                                 value={editForm.clockIn}
                                                                 onChange={(e) => setEditForm({...editForm, clockIn: e.target.value})}
-                                                                className="w-full bg-gray-50 dark:bg-[#0f0f0f] px-3 py-2 rounded-lg text-sm dark:text-[#e8ecf5] outline-none"
+                                                                className="w-full bg-gray-50 dark:bg-[#1E1E1E] px-3 py-2 rounded-lg text-sm dark:text-white outline-none"
                                                             />
                                                         </div>
                                                         <div>
@@ -2564,7 +2564,7 @@
                                                                 type="datetime-local" 
                                                                 value={editForm.clockOut}
                                                                 onChange={(e) => setEditForm({...editForm, clockOut: e.target.value})}
-                                                                className="w-full bg-gray-50 dark:bg-[#0f0f0f] px-3 py-2 rounded-lg text-sm dark:text-[#e8ecf5] outline-none"
+                                                                className="w-full bg-gray-50 dark:bg-[#1E1E1E] px-3 py-2 rounded-lg text-sm dark:text-white outline-none"
                                                             />
                                                         </div>
                                                         <div>
@@ -2574,7 +2574,7 @@
                                                                 value={editForm.notes}
                                                                 onChange={(e) => setEditForm({...editForm, notes: e.target.value})}
                                                                 placeholder="Optional..."
-                                                                className="w-full bg-gray-50 dark:bg-[#0f0f0f] px-3 py-2 rounded-lg text-sm dark:text-[#e8ecf5] outline-none"
+                                                                className="w-full bg-gray-50 dark:bg-[#1E1E1E] px-3 py-2 rounded-lg text-sm dark:text-white outline-none"
                                                             />
                                                         </div>
                                                         <div className="flex gap-2">
@@ -2586,7 +2586,7 @@
                                                             </button>
                                                             <button 
                                                                 onClick={cancelEdit}
-                                                                className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-[#e8ecf5] py-2 rounded-lg text-xs font-bold hover:bg-gray-400 dark:hover:bg-gray-700"
+                                                                className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-white py-2 rounded-lg text-xs font-bold hover:bg-gray-400 dark:hover:bg-gray-700"
                                                             >
                                                                 Abbrechen
                                                             </button>
@@ -2620,7 +2620,7 @@
                                                         {entry.notes && (
                                                             <div className="text-xs text-gray-400 mb-3 italic">"{entry.notes}"</div>
                                                         )}
-                                                        <div className="flex gap-2 border-t border-[#e2e8f0] dark:border-gray-700 pt-3">
+                                                        <div className="flex gap-2 border-t border-gray-100 dark:border-gray-700 pt-3">
                                                             <button 
                                                                 onClick={() => startEdit(entry)}
                                                                 className="flex-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 py-2 rounded-lg text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/30"
@@ -4334,7 +4334,7 @@
 
                     {permGateOpen && (
                         <div className="fixed inset-0 z-[300] bg-black/40 flex items-end md:items-center justify-center p-4 fade-in">
-                            <div className="w-full max-w-md bg-[#ffffff] dark:bg-[#0f0f0f] rounded-[32px] p-6 shadow-2xl slide-up">
+                            <div className="w-full max-w-md bg-white dark:bg-[#1E1E1E] rounded-[32px] p-6 shadow-2xl slide-up">
                                 <div className="text-lg font-bold dark:text-white">Berechtigungen</div>
                                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     Für Kamera, Mikrofon und lokalen Speicher.
@@ -4365,7 +4365,7 @@
                                     </button>
                                     <button
                                         onClick={() => setPermGateOpen(false)}
-                                        className="p-3 rounded-2xl bg-gray-100 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] shadow-sm font-bold"
+                                        className="p-3 rounded-2xl bg-gray-100 dark:bg-[#2D2D2D] dark:text-white shadow-sm font-bold"
                                     >
                                         Später
                                     </button>
@@ -4380,17 +4380,17 @@
                     <div className="w-full flex justify-between items-center mb-6 z-10 relative">
                         <div className="relative">
                             <div onClick={() => setShowCalendarSwitcher(!showCalendarSwitcher)} className="cursor-pointer flex items-center gap-2">
-                                <h1 className="text-2xl font-bold tracking-tight dark:text-[#e8ecf5] truncate max-w-[200px]">{activeCalName || 'Lade...'}</h1>
+                                <h1 className="text-2xl font-bold tracking-tight dark:text-white truncate max-w-[200px]">{activeCalName || 'Lade...'}</h1>
                                 <Icon name="chevronDown" size={18} className="text-gray-400"/>
                             </div>
                             {showCalendarSwitcher && (
-                                <div className="absolute top-10 left-0 bg-[#ffffff] dark:bg-[#0f0f0f] rounded-2xl shadow-xl border border-[#e2e8f0] dark:border-[#1f1f1f] p-2 w-56 z-20 slide-up">
+                                <div className="absolute top-10 left-0 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 w-56 z-20 slide-up">
                                     <button onClick={()=>{setActiveCalendarId(ALL_CALENDARS); setShowCalendarSwitcher(false);}} className={`w-full text-left px-4 py-3 rounded-xl flex itemscenter gap-3 ${activeCalendarId===ALL_CALENDARS ? 'bg-black text-white dark:bgwhite dark:text-black' : 'hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white'}`}>
                                         <Icon name="layers" size={16}/> <span className="font-bold text-sm">Alle Kalender</span>
                                     </button>
                                     <div className="h-px bg-gray-100 dark:bg-gray-800 my-1"></div>
                                     {myCalendars.map(cal => (
-                                        <button key={cal.id} onClick={()=>{setActiveCalendarId(cal.id); setShowCalendarSwitcher(false);}} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center gap-3 ${activeCalendarId===cal.id ? 'bg-gray-100 dark:bg-[#1a1a1a] font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2D2D2D]'} dark:text-gray-200`}>
+                                        <button key={cal.id} onClick={()=>{setActiveCalendarId(cal.id); setShowCalendarSwitcher(false);}} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center gap-3 ${activeCalendarId===cal.id ? 'bg-gray-100 dark:bg-[#2D2D2D] font-bold' : 'hover:bg-gray-50 dark:hover:bg-[#2D2D2D]'} dark:text-gray-200`}>
                                             <div className={`w-2 h-2 rounded-full ${CALENDAR_COLORS.find(c=>c.hex===cal.color)?.bg}`}/>
                                             <span className="text-sm truncate">{cal.name}</span>
                                         </button>
@@ -4399,16 +4399,16 @@
                             )}
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => setCurrentDate(new Date())} className={`px-3 bg-white dark:bg-[#0f0f0f] rounded-2xl shadow-sm font-bold text-xs uppercase dark:text-[#e8ecf5] ${todayBlinkToken ? "blink-attn" : ""}`}>Heute</button>
-                            <button onClick={() => setShowSearchPanel(true)} className="p-3 bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-2xl shadow-sm" title="Suchen"><Icon name="search"/></button>
-                            <button onClick={() => setCalendarView(calendarView === 'month' ? 'week' : 'month')} className="p-3 bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-2xl shadow-sm" title={calendarView === 'month' ? 'Wochenansicht' : 'Monatsansicht'}><Icon name={calendarView === 'month' ? 'calendar' : 'grid'}/></button>
-                            <button onClick={() => setShowSettingsModal(true)} className="p-3 bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-2xl shadow-sm"><Icon name="settings"/></button>
+                            <button onClick={() => setCurrentDate(new Date())} className={`px-3 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm font-bold text-xs uppercase dark:text-white ${todayBlinkToken ? "blink-attn" : ""}`}>Heute</button>
+                            <button onClick={() => setShowSearchPanel(true)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm" title="Suchen"><Icon name="search"/></button>
+                            <button onClick={() => setCalendarView(calendarView === 'month' ? 'week' : 'month')} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm" title={calendarView === 'month' ? 'Wochenansicht' : 'Monatsansicht'}><Icon name={calendarView === 'month' ? 'calendar' : 'grid'}/></button>
+                            <button onClick={() => setShowSettingsModal(true)} className="p-3 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-2xl shadow-sm"><Icon name="settings"/></button>
                         </div>
                     </div>
 
                     {/* Calendar Grid */}
                     <div 
-                        className="w-full bg-[#ffffff] dark:bg-[#0f0f0f] rounded-[32px] p-6 shadow-xl shadow-gray-100 dark:shadow-none mb-6 slide-up transition-colors relative overflow-hidden" 
+                        className="w-full bg-white dark:bg-[#1E1E1E] rounded-[32px] p-6 shadow-xl shadow-gray-100 dark:shadow-none mb-6 slide-up transition-colors relative overflow-hidden" 
                         style={{touchAction: 'none'}} 
                         onTouchMove={handleTouchMove}
                     >
@@ -4540,7 +4540,7 @@
                                         weekDays.push(
                                             <div 
                                                 key={i} 
-                                                className={`bg-white dark:bg-[#1a1a1a] rounded-2xl p-4 cursor-pointer transition-all drop-zone ${isSel ? 'ring-2 ring-black dark:ring-white' : ''} ${isToday ? 'border-2 border-yellow-400' : ''}`} 
+                                                className={`bg-white dark:bg-[#2D2D2D] rounded-2xl p-4 cursor-pointer transition-all drop-zone ${isSel ? 'ring-2 ring-black dark:ring-white' : ''} ${isToday ? 'border-2 border-yellow-400' : ''}`} 
                                                 onClick={() => setSelectedDate(d)}
                                                 onDragOver={(e) => {
                                                     e.preventDefault();
@@ -4560,7 +4560,7 @@
                                                         <div className={`text-2xl font-bold ${isToday ? 'text-yellow-600 dark:text-yellow-400' : 'dark:text-white'}`}>{d.getDate()}</div>
                                                     </div>
                                                     <div className="text-xs text-gray-400">
-                                                        {dayEvents.length > 0 && <span className="px-2 py-1 bg-gray-100 dark:bg-[#0f0f0f] rounded-full">{dayEvents.length}</span>}
+                                                        {dayEvents.length > 0 && <span className="px-2 py-1 bg-gray-100 dark:bg-[#1E1E1E] rounded-full">{dayEvents.length}</span>}
                                                     </div>
                                                 </div>
                                                 {dayEvents.slice(0, 3).map(ev => {
@@ -4592,7 +4592,7 @@
                         <div className="w-full mb-6 px-4">
                             <div className="flex flex-wrap gap-3 justify-center">
                                 {(activeCalendar.shiftDefinitions).map(def => (
-                                    <div key={def.id} className="flex items-center gap-1.5 bg-[#ffffff] dark:bg-[#0f0f0f] px-3 py-1.5 rounded-full shadow-sm text-xs font-medium dark:text-gray-300">
+                                    <div key={def.id} className="flex items-center gap-1.5 bg-white dark:bg-[#1E1E1E] px-3 py-1.5 rounded-full shadow-sm text-xs font-medium dark:text-gray-300">
                                         <div className="w-3 h-3 rounded-full" style={{backgroundColor: def.color}}></div>
                                         <span>{def.name}</span>
                                         <span className="opacity-50">{def.time}</span>
@@ -4616,7 +4616,7 @@
                                         const eventIds = filteredEvents.filter(e => e.type !== 'shift').map(e => e.id);
                                         setSelectedEventIds(selectedEventIds.length === eventIds.length ? [] : eventIds);
                                     }}
-                                    className="flex-1 py-2 bg-[#ffffff] dark:bg-[#0f0f0f] rounded-xl text-xs font-bold"
+                                    className="flex-1 py-2 bg-white dark:bg-[#1E1E1E] rounded-xl text-xs font-bold"
                                 >
                                     {selectedEventIds.length === filteredEvents.filter(e => e.type !== 'shift').length ? 'Alle abwählen' : 'Alle wählen'}
                                 </button>
@@ -4645,7 +4645,7 @@
                         )}
                         
                         <div className="space-y-3">
-                            {filteredEvents.filter(e => e.type !== 'shift').length === 0 ? <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-[#1f1f1f] rounded-3xl text-sm dark:text-gray-400">Keine Termine</div> : filteredEvents.filter(e => e.type !== 'shift').map(ev => {
+                            {filteredEvents.filter(e => e.type !== 'shift').length === 0 ? <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-gray-800 rounded-3xl text-sm dark:text-gray-400">Keine Termine</div> : filteredEvents.filter(e => e.type !== 'shift').map(ev => {
                                 const isExpanded = expandedEventId === ev.id;
                                 const cal = myCalendars.find(c => c.id === ev.calendarId);
                                 // Use category color if available, otherwise calendar color
@@ -4660,7 +4660,7 @@
                                         key={ev.id} 
                                         draggable={!isRequest && !multiSelectMode}
                                         onDragStart={(e) => handleEventDragStart(e, ev)}
-                                        className={`bg-white dark:bg-[#0f0f0f] rounded-3xl shadow-sm transition-all duration-300 overflow-hidden ${multiSelectMode ? 'cursor-pointer' : 'cursor-move'} ${isExpanded ? 'ring-1 ring-black/5 dark:ring-white/10' : ''} ${isSelected ? 'ring-2 ring-blue-500' : ''} draggable-event`} 
+                                        className={`bg-white dark:bg-[#1E1E1E] rounded-3xl shadow-sm transition-all duration-300 overflow-hidden ${multiSelectMode ? 'cursor-pointer' : 'cursor-move'} ${isExpanded ? 'ring-1 ring-black/5 dark:ring-white/10' : ''} ${isSelected ? 'ring-2 ring-blue-500' : ''} draggable-event`} 
                                         onClick={() => multiSelectMode ? toggleEventSelection(ev.id) : setExpandedEventId(isExpanded ? null : ev.id)}
                                     >
                                         <div className="p-4 flex items-center justify-between">
@@ -4719,7 +4719,7 @@
                     </div>
 
                     {/* BOTTOM ACTION BAR */}
-                    <div className={`fixed left-0 right-0 bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-lg border-t dark:border-[#1f1f1f] p-3 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] transition-all ${hasShiftPlan && activeCalendarId !== ALL_CALENDARS ? 'bottom-16' : 'bottom-0'}`}>
+                    <div className={`fixed left-0 right-0 bg-white/95 dark:bg-[#1E1E1E]/95 backdrop-blur-lg border-t dark:border-gray-800 p-3 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] transition-all ${hasShiftPlan && activeCalendarId !== ALL_CALENDARS ? 'bottom-16' : 'bottom-0'}`}>
                         <div className="max-w-lg mx-auto flex justify-around items-center gap-2">
                             <button onClick={() => setShowAddEventModal(true)} className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-[#2D2D2D]" title="Neuer Termin">
                                 <div className="p-2 rounded-full bg-black text-white dark:bg-white dark:text-black">
@@ -4728,41 +4728,41 @@
                                 <span className="text-[10px] font-bold dark:text-white">Termin</span>
                             </button>
                             <button onClick={() => setShowTodoModal(true)} className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-[#2D2D2D]" title="TODOs">
-                                <div className="p-2 rounded-full bg-gray-100 dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300">
+                                <div className="p-2 rounded-full bg-gray-100 dark:bg-[#2D2D2D] text-gray-700 dark:text-gray-300">
                                     <Icon name="check" size={18}/>
                                 </div>
                                 <span className="text-[10px] font-bold dark:text-white">TODOs</span>
                             </button>
                             <button onClick={() => setShowAvailabilityModal(true)} className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-[#2D2D2D]" title="Terminfindung">
-                                <div className="p-2 rounded-full bg-gray-100 dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300">
+                                <div className="p-2 rounded-full bg-gray-100 dark:bg-[#2D2D2D] text-gray-700 dark:text-gray-300">
                                     <Icon name="calendar" size={18}/>
                                 </div>
                                 <span className="text-[10px] font-bold dark:text-white">Poll</span>
                             </button>
                             <button onClick={() => setShowTimeTrackingPanel(true)} className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-[#2D2D2D]" title="Zeiterfassung">
-                                <div className="p-2 rounded-full bg-gray-100 dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300">
+                                <div className="p-2 rounded-full bg-gray-100 dark:bg-[#2D2D2D] text-gray-700 dark:text-gray-300">
                                     <Icon name="clock" size={18}/>
                                 </div>
                                 <span className="text-[10px] font-bold dark:text-white">Zeit</span>
                             </button>
                             <div className="relative">
                                 <button onClick={() => setShowExportMenu(!showExportMenu)} className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-[#2D2D2D]" title="Mehr">
-                                    <div className="p-2 rounded-full bg-gray-100 dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300">
+                                    <div className="p-2 rounded-full bg-gray-100 dark:bg-[#2D2D2D] text-gray-700 dark:text-gray-300">
                                         <Icon name="layers" size={18}/>
                                     </div>
                                     <span className="text-[10px] font-bold dark:text-white">Mehr</span>
                                 </button>
                                 {showExportMenu && (
-                                    <div className="absolute bottom-full mb-2 right-0 bg-[#ffffff] dark:bg-[#0f0f0f] rounded-2xl shadow-xl border border-[#e2e8f0] dark:border-[#1f1f1f] p-2 w-52 z-20 slide-up max-h-96 overflow-y-auto">
-                                        <button onClick={() => { setShowHabitsModal(true); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-[#e8ecf5] text-sm font-medium">🎯 Habit Tracker</button>
-                                        <button onClick={() => { setShowTemplatesModal(true); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-[#e8ecf5] text-sm font-medium">📋 Templates</button>
-                                        <button onClick={() => { setMultiSelectMode(!multiSelectMode); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-[#e8ecf5] text-sm font-medium">
+                                    <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 w-52 z-20 slide-up max-h-96 overflow-y-auto">
+                                        <button onClick={() => { setShowHabitsModal(true); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm font-medium">🎯 Habit Tracker</button>
+                                        <button onClick={() => { setShowTemplatesModal(true); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm font-medium">📋 Templates</button>
+                                        <button onClick={() => { setMultiSelectMode(!multiSelectMode); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm font-medium">
                                             {multiSelectMode ? '✓ Multi-Select AN' : '☐ Multi-Select'}
                                         </button>
-                                        <div className="border-t border-[#e2e8f0] dark:border-[#1f1f1f] my-1"></div>
-                                        <button onClick={() => { exportToICS(events); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-[#e8ecf5] text-sm">iCal/ICS Export</button>
-                                        {hasShiftPlan && <button onClick={() => { exportShiftsToPDF(); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-[#e8ecf5] text-sm">PDF Schichtplan</button>}
-                                        <button onClick={() => { setShowBackupModal(true); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-[#e8ecf5] text-sm">Backup/Restore</button>
+                                        <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
+                                        <button onClick={() => { exportToICS(events); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">iCal/ICS Export</button>
+                                        {hasShiftPlan && <button onClick={() => { exportShiftsToPDF(); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">PDF Schichtplan</button>}
+                                        <button onClick={() => { setShowBackupModal(true); setShowExportMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white text-sm">Backup/Restore</button>
                                     </div>
                                 )}
                             </div>
@@ -4771,8 +4771,8 @@
 
                     {/* SHIFT BOTTOM BAR */}
                     {hasShiftPlan && activeCalendarId !== ALL_CALENDARS && (
-                        <div className="fixed bottom-0 left-0 right-0 bg-[#ffffff] dark:bg-[#0f0f0f] border-t dark:border-[#1f1f1f] p-2 z-40 flex justify-center shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-                            <button onClick={() => setShiftMode(!shiftMode)} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${shiftMode ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-gray-100 dark:bg-[#1a1a1a] dark:text-white'}`}>
+                        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1E1E1E] border-t dark:border-gray-800 p-2 z-40 flex justify-center shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+                            <button onClick={() => setShiftMode(!shiftMode)} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${shiftMode ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-gray-100 dark:bg-[#2D2D2D] dark:text-white'}`}>
                                 <Icon name="briefcase" size={16} /> {shiftMode ? 'Pinsel AN' : 'Pinsel AUS'}
                             </button>
                         </div>
@@ -4780,14 +4780,14 @@
 
                     {/* SETTINGS MODAL */}
                     {showSettingsModal && (
-                        <div className="fixed inset-0 bg-[#f8f9fb] dark:bg-[#000000] z-50 flex flex-col slide-up">
-                            <div className="px-6 py-6 border-b border-[#e2e8f0] dark:border-[#1f1f1f] flex justify-between items-center bg-[#f8f9fb] dark:bg-[#000000] sticky top-0">
+                        <div className="fixed inset-0 bg-white dark:bg-[#121212] z-50 flex flex-col slide-up">
+                            <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#121212] sticky top-0">
                                 <h2 className="text-2xl font-bold dark:text-white">Einstellungen</h2>
-                                <button onClick={() => setShowSettingsModal(false)} className="p-2 bg-gray-100 dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-full"><Icon name="x" size={24}/></button>
+                                <button onClick={() => setShowSettingsModal(false)} className="p-2 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-full"><Icon name="x" size={24}/></button>
                             </div>
                             <div className="p-6 overflow-y-auto flex-1 bg-[#F8F9FA] dark:bg-[#000000]">
                                 
-                                <div onClick={()=>setShowCategoryEditor(true)} className="bg-[#ffffff] dark:bg-[#0f0f0f] p-6 rounded-[32px] mb-6 shadow-sm flex justify-between items-center cursor-pointer">
+                                <div onClick={()=>setShowCategoryEditor(true)} className="bg-white dark:bg-[#1E1E1E] p-6 rounded-[32px] mb-6 shadow-sm flex justify-between items-center cursor-pointer">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center"><Icon name="tag" size={20}/></div>
                                         <div><p className="font-bold dark:text-white">Kategorien</p><p className="text-xs text-gray-400">Verwalten</p></div>
@@ -4795,7 +4795,7 @@
                                     <Icon name="chevronRight" className="text-gray-300"/>
                                 </div>
 
-                                <div className="bg-[#ffffff] dark:bg-[#0f0f0f] p-6 rounded-[32px] mb-6 shadow-sm">
+                                <div className="bg-white dark:bg-[#1E1E1E] p-6 rounded-[32px] mb-6 shadow-sm">
                                     <h3 className="text-xs font-bold text-gray-400 uppercase mb-4">Profil</h3>
                                     <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg" style={{backgroundColor: userData.avatarColor || '#1D1D1F'}}>{editName?.charAt(0).toUpperCase()}</div>
@@ -4806,7 +4806,7 @@
                                         <div>
                                             <label className="text-xs font-bold text-gray-400 uppercase ml-1 mb-2 block">Theme Modus</label>
                                             <select 
-                                                className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-xl p-3 font-bold outline-none" 
+                                                className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl p-3 font-bold outline-none" 
                                                 value={themeMode}
                                                 onChange={e => {
                                                     setThemeMode(e.target.value);
@@ -4823,7 +4823,7 @@
                                         <div>
                                             <label className="text-xs font-bold text-gray-400 uppercase ml-1 mb-2 block">Farbpalette</label>
                                             <select 
-                                                className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-xl p-3 font-bold outline-none" 
+                                                className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl p-3 font-bold outline-none" 
                                                 value={themePalette}
                                                 onChange={e => setThemePalette(e.target.value)}
                                             >
@@ -4835,7 +4835,7 @@
                                     </div>
                                 </div>
 
-                                <div className="mt-4 bg-[#ffffff] dark:bg-[#0f0f0f] p-5 rounded-[28px] shadow-sm">
+                                <div className="mt-4 bg-white dark:bg-[#1E1E1E] p-5 rounded-[28px] shadow-sm">
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <div className="font-bold dark:text-white">Benachrichtigungen</div>
@@ -4849,18 +4849,18 @@
                                     </div>
                                 </div>
 
-                                <div className="flex justify-between items-center mb-2"><h3 className="text-sm font-bold uppercase text-gray-400">Meine Kalender</h3><button onClick={() => createNewCalendar("Neuer Kalender")} className="text-xs bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-[#000000] transition-colors px-3 py-1.5 rounded-full font-bold">+</button></div>
+                                <div className="flex justify-between items-center mb-2"><h3 className="text-sm font-bold uppercase text-gray-400">Meine Kalender</h3><button onClick={() => createNewCalendar("Neuer Kalender")} className="text-xs bg-black dark:bg-white dark:text-black text-white px-3 py-1.5 rounded-full font-bold">+</button></div>
                                 
                                 {/* CALENDAR SEARCH */}
                                 <div className="mb-4">
-                                    <input placeholder="Kalender suchen..." className="w-full bg-gray-100 dark:bg-[#0f0f0f] dark:text-[#e8ecf5] px-4 py-2 rounded-xl text-sm outline-none" value={calendarSearchTerm} onChange={e=>setCalendarSearchTerm(e.target.value)} />
+                                    <input placeholder="Kalender suchen..." className="w-full bg-gray-100 dark:bg-[#1E1E1E] dark:text-white px-4 py-2 rounded-xl text-sm outline-none" value={calendarSearchTerm} onChange={e=>setCalendarSearchTerm(e.target.value)} />
                                 </div>
                                 
                                 <div className="space-y-4">{filteredSettingsCalendars.map(cal => {
                                     const isExpanded = expandedSettingsId === cal.id;
                                     const iAmAdmin = cal.members.find(m => m.uid === user.uid)?.role === ROLES.ADMIN;
                                     return (
-                                        <div key={cal.id} className={`bg-white dark:bg-[#0f0f0f] rounded-[32px] overflow-hidden shadow-sm transition-colors ${isExpanded ? 'ring-2 ring-black dark:ring-white' : ''}`}>
+                                        <div key={cal.id} className={`bg-white dark:bg-[#1E1E1E] rounded-[32px] overflow-hidden shadow-sm transition-colors ${isExpanded ? 'ring-2 ring-black dark:ring-white' : ''}`}>
                                             <div className="p-5 flex items-center justify-between cursor-pointer" onClick={()=>{setExpandedSettingsId(isExpanded?null:cal.id); setEditCalendarName(cal.name);}}>
                                                 <div className="flex gap-4 items-center">
                                                     <div className={`w-4 h-4 rounded-full ${CALENDAR_COLORS.find(c=>c.hex===cal.color)?.bg||'bg-gray-400'}`}/>
@@ -4869,15 +4869,15 @@
                                                 <span className="text-xs text-gray-400">Edit</span>
                                             </div>
                                             {isExpanded && (
-                                                <div className="px-5 pb-6 border-t border-gray-50 dark:border-[#1f1f1f] pt-4">
+                                                <div className="px-5 pb-6 border-t border-gray-50 dark:border-gray-800 pt-4">
                                                     <div className="mb-4 flex gap-2">
-                                                        <input className="flex-1 bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-xl px-3 py-2 text-sm font-bold outline-none" value={editCalendarName} onChange={(e) => setEditCalendarName(e.target.value)} />
-                                                        <button onClick={()=>updateCalendar(cal.id, {name: editCalendarName})} className="bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-[#000000] transition-colors px-3 rounded-xl"><Icon name="check" size={16}/></button>
+                                                        <input className="flex-1 bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl px-3 py-2 text-sm font-bold outline-none" value={editCalendarName} onChange={(e) => setEditCalendarName(e.target.value)} />
+                                                        <button onClick={()=>updateCalendar(cal.id, {name: editCalendarName})} className="bg-black dark:bg-white dark:text-black text-white px-3 rounded-xl"><Icon name="check" size={16}/></button>
                                                     </div>
                                                     
                                                     {/* MEMBER MANAGEMENT */}
-                                                    <div className="mb-4 bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl">
-                                                        <span className="text-sm font-bold dark:text-[#e8ecf5] mb-2 block">Mitglieder</span>
+                                                    <div className="mb-4 bg-gray-50 dark:bg-[#2D2D2D] p-4 rounded-2xl">
+                                                        <span className="text-sm font-bold dark:text-white mb-2 block">Mitglieder</span>
                                                         <div className="space-y-2 mb-3">
                                                             {cal.members.map(m => (
                                                                 <div key={m.uid} className="flex justify-between items-center text-xs dark:text-gray-300">
@@ -4890,14 +4890,14 @@
                                                         </div>
                                                         {iAmAdmin && (
                                                             <div className="flex gap-2">
-                                                                <input className="flex-1 bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-lg px-2 py-1.5 text-xs outline-none" placeholder="Username suchen..." value={memberAddName} onChange={e=>setMemberAddName(e.target.value)}/>
-                                                                <button onClick={()=>addMemberToCalendar(cal.id)} className="bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-[#000000] transition-colors px-3 rounded-lg text-xs font-bold">Add</button>
+                                                                <input className="flex-1 bg-white dark:bg-[#1E1E1E] dark:text-white rounded-lg px-2 py-1.5 text-xs outline-none" placeholder="Username suchen..." value={memberAddName} onChange={e=>setMemberAddName(e.target.value)}/>
+                                                                <button onClick={()=>addMemberToCalendar(cal.id)} className="bg-black dark:bg-white dark:text-black text-white px-3 rounded-lg text-xs font-bold">Add</button>
                                                             </div>
                                                         )}
                                                     </div>
 
                                                     {/* SHIFT CONFIG */}
-                                                    <div className="mb-4 bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl">
+                                                    <div className="mb-4 bg-gray-50 dark:bg-[#2D2D2D] p-4 rounded-2xl">
                                                         <div className="flex items-center justify-between mb-2">
                                                             <span className="text-sm font-bold dark:text-white">Schichtplan</span>
                                                             <div className={`w-10 h-6 rounded-full p-1 cursor-pointer transition-colors ${cal.shiftEnabled ? 'bg-green-500' : 'bg-gray-300'}`} onClick={()=>toggleShiftEnabled(cal.id, !cal.shiftEnabled)}>
@@ -4915,8 +4915,8 @@
                                                                     ))}
                                                                 </div>
                                                                 <div className="flex gap-1">
-                                                                    <input className="w-1/3 bg-[#ffffff] dark:bg-[#0f0f0f] rounded-lg px-2 py-1 text-xs" placeholder="Name" value={newShift.name} onChange={e=>setNewShift({...newShift, name:e.target.value})}/>
-                                                                    <input className="w-1/3 bg-[#ffffff] dark:bg-[#0f0f0f] rounded-lg px-2 py-1 text-xs" placeholder="Zeit" value={newShift.time} onChange={e=>setNewShift({...newShift, time:e.target.value})}/>
+                                                                    <input className="w-1/3 bg-white dark:bg-[#1E1E1E] rounded-lg px-2 py-1 text-xs" placeholder="Name" value={newShift.name} onChange={e=>setNewShift({...newShift, name:e.target.value})}/>
+                                                                    <input className="w-1/3 bg-white dark:bg-[#1E1E1E] rounded-lg px-2 py-1 text-xs" placeholder="Zeit" value={newShift.time} onChange={e=>setNewShift({...newShift, time:e.target.value})}/>
                                                                     <input type="color" className="w-8 h-6 rounded border-none" value={newShift.color} onChange={e=>setNewShift({...newShift, color:e.target.value})}/>
                                                                     <button onClick={()=>addShiftDefinition(cal.id)} className="bg-black text-white px-2 rounded-lg"><Icon name="plus" size={12}/></button>
                                                                 </div>
@@ -4925,7 +4925,7 @@
                                                     </div>
 
                                                     {/* WORK CALENDAR (Secret Trigger) */}
-                                                    <div className="mb-4 bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl">
+                                                    <div className="mb-4 bg-gray-50 dark:bg-[#2D2D2D] p-4 rounded-2xl">
                                                         <div className="flex items-center justify-between mb-1">
                                                             <span className="text-sm font-bold dark:text-white">Arbeitskalender</span>
                                                             <div className={`w-10 h-6 rounded-full p-1 cursor-pointer transition-colors ${cal.isWorkCalendar ? 'bg-blue-500' : 'bg-gray-300'}`} onClick={()=>updateCalendar(cal.id, { isWorkCalendar: !cal.isWorkCalendar })}>
@@ -4934,14 +4934,14 @@
                                                         </div>
 </div>
 
-                                                    <button onClick={()=>{navigator.clipboard.writeText(cal.id); showToast("Code kopiert")}} className="w-full py-3 mb-2 bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-xl font-bold text-xs flex items-center justify-center gap-2">ID Kopieren</button>
+                                                    <button onClick={()=>{navigator.clipboard.writeText(cal.id); showToast("Code kopiert")}} className="w-full py-3 mb-2 bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2">ID Kopieren</button>
                                                     {iAmAdmin && <button onClick={() => handleDeleteCalendar(cal.id)} className="w-full py-3 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-xl font-bold text-xs">Löschen</button>}
                                                 </div>
                                             )}
                                         </div>
                                     );
                                 })}</div>
-                                <div className="mt-8 pt-8 border-t border-[#e2e8f0] dark:border-[#1f1f1f]"><button onClick={()=>auth.signOut()} className="w-full py-4 text-red-500 font-bold bg-[#ffffff] dark:bg-[#0f0f0f] rounded-2xl shadow-sm">Abmelden</button></div>
+                                <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-800"><button onClick={()=>auth.signOut()} className="w-full py-4 text-red-500 font-bold bg-white dark:bg-[#1E1E1E] rounded-2xl shadow-sm">Abmelden</button></div>
                             </div>
                         </div>
                     )}
@@ -4949,8 +4949,8 @@
                     {/* SHIFT SELECTOR MODAL */}
                     {showShiftSelector && (
                         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={() => { setShowShiftSelector(false); setDragSelection({start:null, end:null, isDragging:false}); }}>
-                            <div className="bg-[#ffffff] dark:bg-[#0f0f0f] w-full max-w-xs rounded-[32px] p-6 shadow-2xl scale-in" onClick={e=>e.stopPropagation()}>
-                                <h3 className="text-lg font-bold mb-4 dark:text-[#e8ecf5] text-center">Schicht wählen</h3>
+                            <div className="bg-white dark:bg-[#1E1E1E] w-full max-w-xs rounded-[32px] p-6 shadow-2xl scale-in" onClick={e=>e.stopPropagation()}>
+                                <h3 className="text-lg font-bold mb-4 dark:text-white text-center">Schicht wählen</h3>
                                 <p className="text-center text-xs text-gray-400 mb-4">{getDatesInRange(dragSelection.start, dragSelection.end).length} Tag(e) gewählt</p>
                                 <div className="space-y-2">
                                     {(activeCalendar?.shiftDefinitions||[]).map(shift => (
@@ -4959,7 +4959,7 @@
                                             <span className="opacity-70 text-xs mt-1">{shift.time}</span>
                                         </button>
                                     ))}
-                                    <button onClick={()=>assignShift(null)} className="w-full p-4 rounded-xl font-bold bg-gray-100 dark:bg-[#1a1a1a] text-gray-500">Schicht löschen</button>
+                                    <button onClick={()=>assignShift(null)} className="w-full p-4 rounded-xl font-bold bg-gray-100 dark:bg-[#2D2D2D] text-gray-500">Schicht löschen</button>
                                 </div>
                             </div>
                         </div>
@@ -4967,8 +4967,8 @@
 
                     {/* CATEGORY MODAL */}
                     {showCategoryEditor && (
-                        <div className="fixed inset-0 bg-[#f8f9fb] dark:bg-[#000000] z-[60] flex flex-col slide-up">
-                            <div className="px-6 py-6 border-b border-[#e2e8f0] dark:border-[#1f1f1f] flex justify-between items-center bg-[#f8f9fb] dark:bg-[#000000] sticky top-0">
+                        <div className="fixed inset-0 bg-white dark:bg-[#121212] z-[60] flex flex-col slide-up">
+                            <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#121212] sticky top-0">
                                 <div className="flex items-center gap-2">
                                     <button onClick={() => setShowCategoryEditor(false)} className="p-2 -ml-2 rounded-full"><Icon name="chevronLeft"/></button>
                                     <h2 className="text-xl font-bold dark:text-white">Kategorien</h2>
@@ -4976,33 +4976,33 @@
                             </div>
                             <div className="p-6 overflow-y-auto flex-1 bg-[#F8F9FA] dark:bg-[#000000]">
                                 <div className="mb-6 flex gap-2">
-                                    <input className="flex-1 bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5] p-4 rounded-2xl outline-none shadow-sm" placeholder="Neue Hauptkategorie..." value={newCatName} onChange={e=>setNewCatName(e.target.value)}/>
-                                    <button onClick={addMainCategory} className="bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-[#000000] transition-colors px-5 rounded-2xl font-bold shadow-lg">Neu</button>
+                                    <input className="flex-1 bg-white dark:bg-[#1E1E1E] dark:text-white p-4 rounded-2xl outline-none shadow-sm" placeholder="Neue Hauptkategorie..." value={newCatName} onChange={e=>setNewCatName(e.target.value)}/>
+                                    <button onClick={addMainCategory} className="bg-black dark:bg-white dark:text-black text-white px-5 rounded-2xl font-bold shadow-lg">Neu</button>
                                 </div>
                                 <div className="space-y-3">
                                     {Object.keys(categories).map(cat => {
                                         const isExpanded = expandedCatEdit === cat;
                                         return (
-                                            <div key={cat} className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-[24px] overflow-hidden shadow-sm">
+                                            <div key={cat} className="bg-white dark:bg-[#1E1E1E] rounded-[24px] overflow-hidden shadow-sm">
                                                 <div className="p-4 flex items-center justify-between cursor-pointer" onClick={()=>setExpandedCatEdit(isExpanded?null:cat)}>
                                                     <span className="font-bold dark:text-white">{cat}</span>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xs text-gray-400 bg-gray-100 dark:bg-[#1a1a1a] px-2 py-1 rounded-lg">{categories[cat].length} Sub</span>
+                                                        <span className="text-xs text-gray-400 bg-gray-100 dark:bg-[#2D2D2D] px-2 py-1 rounded-lg">{categories[cat].length} Sub</span>
                                                         <Icon name="chevronDown" size={16} className={`text-gray-400 transition-transform ${isExpanded?'rotate-180':''}`}/>
                                                     </div>
                                                 </div>
                                                 {isExpanded && (
-                                                    <div className="px-4 pb-4 border-t border-[#e2e8f0] dark:border-[#1f1f1f] bg-gray-50 dark:bg-[#252525]">
+                                                    <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#252525]">
                                                         <div className="flex flex-wrap gap-2 pt-4 mb-4">
                                                             {categories[cat].map(sub => (
-                                                                <div key={sub} className="flex items-center gap-1 bg-[#ffffff] dark:bg-[#0f0f0f] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                                                                <div key={sub} className="flex items-center gap-1 bg-white dark:bg-[#1E1E1E] px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                                                                     <span className="text-sm dark:text-gray-200">{sub}</span>
                                                                     <button onClick={()=>deleteSubCategory(cat, sub)} className="text-gray-400 hover:text-red-500"><Icon name="x" size={12}/></button>
                                                                 </div>
                                                             ))}
                                                         </div>
                                                         <div className="flex gap-2">
-                                                            <input className="flex-1 bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5] px-3 py-2 rounded-xl text-sm outline-none border border-gray-200 dark:border-gray-700" placeholder="Neue Unterkategorie..." value={newSubCatName} onChange={e=>setNewSubCatName(e.target.value)}/>
+                                                            <input className="flex-1 bg-white dark:bg-[#1E1E1E] dark:text-white px-3 py-2 rounded-xl text-sm outline-none border border-gray-200 dark:border-gray-700" placeholder="Neue Unterkategorie..." value={newSubCatName} onChange={e=>setNewSubCatName(e.target.value)}/>
                                                             <button onClick={()=>addSubCategory(cat)} className="bg-black dark:bgwhite dark:text-black text-white px-3 rounded-xl"><Icon name="plus" size={16}/></button>
                                                         </div>
                                                         <button onClick={()=>deleteMainCategory(cat)} className="w-full mt-4 py-2 text-red-500 text-xs font-bold uppercase bg-red-50 dark:bg-red-900/20 rounded-xl">Kategorie Löschen</button>
@@ -5019,29 +5019,29 @@
                     {/* Add Event Modal */}
                     {showAddEventModal && (
                         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
-                            <div className="bg-[#ffffff] dark:bg-[#0f0f0f] w-full max-w-sm rounded-[32px] p-6 shadow-2xl slide-up">
+                            <div className="bg-white dark:bg-[#1E1E1E] w-full max-w-sm rounded-[32px] p-6 shadow-2xl slide-up">
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="text-xl font-bold dark:text-white">Neuer Termin</h3>
-                                    <button onClick={() => setShowAddEventModal(false)} className="p-2 bg-gray-50 dark:bg-[#1a1a1a] rounded-full text-gray-400"><Icon name="x" size={20}/></button>
+                                    <button onClick={() => setShowAddEventModal(false)} className="p-2 bg-gray-50 dark:bg-[#2D2D2D] rounded-full text-gray-400"><Icon name="x" size={20}/></button>
                                 </div>
                                 <div className="space-y-4">
                                     {activeCalendarId === ALL_CALENDARS && (
                                         <div>
                                             <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Kalender wählen</label>
-                                            <select className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.targetCalId} onChange={e => setNewEvent({...newEvent, targetCalId: e.target.value})}>
+                                            <select className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.targetCalId} onChange={e => setNewEvent({...newEvent, targetCalId: e.target.value})}>
                                                 <option value="">Bitte wählen...</option>
                                                 {myCalendars.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                             </select>
                                         </div>
                                     )}
-                                    <input autoFocus className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 mt-1 font-bold outline-none" placeholder="Titel" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})}/>
+                                    <input autoFocus className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" placeholder="Titel" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})}/>
                                     
                                     {/* Quick Add Input */}
                                     <div>
                                         <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Schnelleingabe (optional)</label>
                                         <div className="flex gap-2 mt-1">
                                             <input 
-                                                className="flex-1 bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 font-medium outline-none text-sm" 
+                                                className="flex-1 bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-medium outline-none text-sm" 
                                                 placeholder="z.B. morgen 15:30 90min Meeting"
                                                 value={quickAddInput}
                                                 onChange={e => setQuickAddInput(e.target.value)}
@@ -5051,12 +5051,12 @@
                                         </div>
                                     </div>
                                     
-                                    <textarea className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 mt-1 font-medium outline-none h-24 resize-none" placeholder="Notiz..." value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})}/>
+                                    <textarea className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-medium outline-none h-24 resize-none" placeholder="Notiz..." value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})}/>
                                     
                                     {/* Emoji Picker */}
                                     <div>
                                         <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Emoji (optional)</label>
-                                        <div className="flex flex-wrap gap-2 mt-1 p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl max-h-32 overflow-y-auto">
+                                        <div className="flex flex-wrap gap-2 mt-1 p-3 bg-gray-50 dark:bg-[#2D2D2D] rounded-2xl max-h-32 overflow-y-auto">
                                             {Object.entries(EMOJI_CATEGORIES).map(([category, emojis]) => (
                                                 <div key={category} className="flex flex-wrap gap-1">
                                                     {emojis.map(emoji => (
@@ -5083,7 +5083,7 @@
                                     {/* Recurrence Selection */}
                                     <div>
                                         <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Wiederholung</label>
-                                        <select className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.recurrence || ''} onChange={e => setNewEvent({...newEvent, recurrence: e.target.value || null})}>
+                                        <select className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.recurrence || ''} onChange={e => setNewEvent({...newEvent, recurrence: e.target.value || null})}>
                                             <option value="">Keine</option>
                                             <option value="daily">Täglich</option>
                                             <option value="weekly">Wöchentlich</option>
@@ -5096,7 +5096,7 @@
                                     {newEvent.recurrence && (
                                         <div>
                                             <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Enddatum (optional)</label>
-                                            <input type="date" className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.recurrenceEndDate || ''} onChange={e => setNewEvent({...newEvent, recurrenceEndDate: e.target.value})} />
+                                            <input type="date" className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.recurrenceEndDate || ''} onChange={e => setNewEvent({...newEvent, recurrenceEndDate: e.target.value})} />
                                         </div>
                                     )}
 
@@ -5109,7 +5109,7 @@
                                                 { value: 1440, label: '1 Tag vorher' },
                                                 { value: 10080, label: '1 Woche vorher' }
                                             ].map(reminder => (
-                                                <div key={reminder.value} className="flex items-center gap-3 bg-gray-50 dark:bg-[#1a1a1a] p-3 rounded-xl">
+                                                <div key={reminder.value} className="flex items-center gap-3 bg-gray-50 dark:bg-[#2D2D2D] p-3 rounded-xl">
                                                     <input 
                                                         type="checkbox" 
                                                         id={`reminder-${reminder.value}`}
@@ -5124,13 +5124,13 @@
                                                             }
                                                         }}
                                                     />
-                                                    <label htmlFor={`reminder-${reminder.value}`} className="text-sm dark:text-[#e8ecf5] cursor-pointer select-none">{reminder.label}</label>
+                                                    <label htmlFor={`reminder-${reminder.value}`} className="text-sm dark:text-white cursor-pointer select-none">{reminder.label}</label>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
 
-                                    <input type="time" className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.time} onChange={e => setNewEvent({...newEvent, time: e.target.value})}/>
+                                    <input type="time" className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.time} onChange={e => setNewEvent({...newEvent, time: e.target.value})}/>
                                     
                                     {/* Duration */}
                                     <div>
@@ -5139,7 +5139,7 @@
                                             type="number" 
                                             min="15" 
                                             step="15"
-                                            className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 mt-1 font-bold outline-none" 
+                                            className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 mt-1 font-bold outline-none" 
                                             value={newEvent.durationMin} 
                                             onChange={e => setNewEvent({...newEvent, durationMin: parseInt(e.target.value) || 60})}
                                         />
@@ -5150,7 +5150,7 @@
                                         <button 
                                             type="button"
                                             onClick={() => setNewEvent({...newEvent, isFocus: !newEvent.isFocus})}
-                                            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${newEvent.isFocus ? 'bg-purple-500 text-white' : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400'}`}
+                                            className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${newEvent.isFocus ? 'bg-purple-500 text-white' : 'bg-gray-100 dark:bg-[#2D2D2D] text-gray-600 dark:text-gray-400'}`}
                                         >
                                             🎯 Fokusblock
                                         </button>
@@ -5176,16 +5176,16 @@
                                     </div>
                                     
                                     <div className="grid grid-cols-2 gap-3">
-                                        <select className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 font-bold outline-none text-sm appearance-none" value={newEvent.category} onChange={e => setNewEvent({...newEvent, category: e.target.value, subCategory: categories[e.target.value]?.[0] || ''})}>
+                                        <select className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none text-sm appearance-none" value={newEvent.category} onChange={e => setNewEvent({...newEvent, category: e.target.value, subCategory: categories[e.target.value]?.[0] || ''})}>
                                             {Object.keys(categories).map(c => <option key={c} value={c}>{c}</option>)}
                                         </select>
-                                        <select className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 font-bold outline-none text-sm appearance-none" value={newEvent.subCategory} onChange={e => setNewEvent({...newEvent, subCategory: e.target.value})}>
+                                        <select className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none text-sm appearance-none" value={newEvent.subCategory} onChange={e => setNewEvent({...newEvent, subCategory: e.target.value})}>
                                             {categories[newEvent.category]?.map(sc => <option key={sc} value={sc}>{sc}</option>)}
                                         </select>
                                     </div>
                                     <div className="pt-4 flex flex-col gap-2">
                                         <button onClick={()=>handleCreateEvent()} className="w-full py-4 bg-black dark:bgwhite dark:text-black text-white rounded-2xl font-bold shadow-lg">Speichern</button>
-                                        <button onClick={()=>handleCreateEvent(true)} className="w-full py-4 bg-gray-100 dark:bg-[#1a1a1a] text-gray-600 dark:text-[#e8ecf5] rounded-2xl font-bold">Als Anfrage senden</button>
+                                        <button onClick={()=>handleCreateEvent(true)} className="w-full py-4 bg-gray-100 dark:bg-[#2D2D2D] text-gray-600 dark:text-white rounded-2xl font-bold">Als Anfrage senden</button>
                                     </div>
                                 </div>
                             </div>
@@ -5194,32 +5194,32 @@
 
                     {/* TODO Modal */}
                     {showTodoModal && (
-                        <div className="fixed inset-0 bg-[#f8f9fb] dark:bg-[#000000] z-50 flex flex-col slide-up overflow-y-auto">
-                            <div className="px-6 py-6 border-b border-[#e2e8f0] dark:border-[#1f1f1f] flex justify-between items-center bg-[#f8f9fb] dark:bg-[#000000] sticky top-0">
+                        <div className="fixed inset-0 bg-white dark:bg-[#121212] z-50 flex flex-col slide-up overflow-y-auto">
+                            <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#121212] sticky top-0">
                                 <h2 className="text-2xl font-bold dark:text-white">TODOs</h2>
-                                <button onClick={() => setShowTodoModal(false)} className="p-2 bg-gray-100 dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-full"><Icon name="x" size={24}/></button>
+                                <button onClick={() => setShowTodoModal(false)} className="p-2 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-full"><Icon name="x" size={24}/></button>
                             </div>
                             <div className="p-6 flex-1 bg-[#F8F9FA] dark:bg-[#000000]">
                                 {/* New TODO Form */}
-                                <div className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-[32px] p-6 mb-6 shadow-sm">
-                                    <h3 className="text-lg font-bold dark:text-[#e8ecf5] mb-4">Neues TODO</h3>
+                                <div className="bg-white dark:bg-[#1E1E1E] rounded-[32px] p-6 mb-6 shadow-sm">
+                                    <h3 className="text-lg font-bold dark:text-white mb-4">Neues TODO</h3>
                                     <div className="space-y-3">
                                         {activeCalendarId === ALL_CALENDARS && (
-                                            <select className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 font-bold outline-none" value={newTodo.targetCalId || ''} onChange={e => setNewTodo({...newTodo, targetCalId: e.target.value})}>
+                                            <select className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none" value={newTodo.targetCalId || ''} onChange={e => setNewTodo({...newTodo, targetCalId: e.target.value})}>
                                                 <option value="">Kalender wählen...</option>
                                                 {myCalendars.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                             </select>
                                         )}
-                                        <input className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 font-bold outline-none" placeholder="Titel" value={newTodo.title} onChange={e => setNewTodo({...newTodo, title: e.target.value})} />
-                                        <textarea className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 outline-none resize-none h-24" placeholder="Beschreibung..." value={newTodo.description} onChange={e => setNewTodo({...newTodo, description: e.target.value})} />
-                                        <input type="date" className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 font-bold outline-none" placeholder="Fälligkeitsdatum" value={newTodo.dueDate} onChange={e => setNewTodo({...newTodo, dueDate: e.target.value})} />
+                                        <input className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none" placeholder="Titel" value={newTodo.title} onChange={e => setNewTodo({...newTodo, title: e.target.value})} />
+                                        <textarea className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 outline-none resize-none h-24" placeholder="Beschreibung..." value={newTodo.description} onChange={e => setNewTodo({...newTodo, description: e.target.value})} />
+                                        <input type="date" className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none" placeholder="Fälligkeitsdatum" value={newTodo.dueDate} onChange={e => setNewTodo({...newTodo, dueDate: e.target.value})} />
                                         
                                         {/* Checklist Items */}
                                         <div>
                                             <label className="text-xs font-bold text-gray-400 uppercase ml-1 mb-2 block">Checkliste</label>
                                             {(newTodo.checklist || []).map((item, idx) => (
                                                 <div key={idx} className="flex gap-2 mb-2">
-                                                    <input className="flex-1 bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-xl p-2 text-sm outline-none" value={item} onChange={e => {
+                                                    <input className="flex-1 bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl p-2 text-sm outline-none" value={item} onChange={e => {
                                                         const updated = [...newTodo.checklist];
                                                         updated[idx] = e.target.value;
                                                         setNewTodo({...newTodo, checklist: updated});
@@ -5230,7 +5230,7 @@
                                             <button onClick={() => setNewTodo({...newTodo, checklist: [...(newTodo.checklist || []), '']})} className="text-sm text-blue-500 font-bold">+ Checklistenpunkt</button>
                                         </div>
 
-                                        <button onClick={handleCreateTodo} className="w-full py-4 bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-[#000000] transition-colors rounded-2xl font-bold shadow-lg">TODO Erstellen</button>
+                                        <button onClick={handleCreateTodo} className="w-full py-4 bg-black dark:bg-white dark:text-black text-white rounded-2xl font-bold shadow-lg">TODO Erstellen</button>
                                     </div>
                                 </div>
 
@@ -5238,14 +5238,14 @@
                                 <div className="space-y-3">
                                     <h3 className="text-sm font-bold uppercase text-gray-400 mb-4">Alle TODOs</h3>
                                     {filteredTodos.length === 0 ? (
-                                        <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-[#1f1f1f] rounded-3xl text-sm dark:text-gray-400">Keine TODOs</div>
+                                        <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-gray-800 rounded-3xl text-sm dark:text-gray-400">Keine TODOs</div>
                                     ) : filteredTodos.map(todo => {
                                         const cal = myCalendars.find(c => c.id === todo.calendarId);
                                         const color = CALENDAR_COLORS.find(c => c.hex === cal?.color) || CALENDAR_COLORS[0];
                                         const isOverdue = todo.dueDate && !todo.completed && new Date(todo.dueDate) < new Date();
                                         
                                         return (
-                                            <div key={todo.id} className={`bg-white dark:bg-[#0f0f0f] rounded-3xl p-5 shadow-sm ${todo.completed ? 'opacity-60' : ''}`}>
+                                            <div key={todo.id} className={`bg-white dark:bg-[#1E1E1E] rounded-3xl p-5 shadow-sm ${todo.completed ? 'opacity-60' : ''}`}>
                                                 <div className="flex items-start gap-4">
                                                     <input 
                                                         type="checkbox" 
@@ -5255,7 +5255,7 @@
                                                     />
                                                     <div className="flex-1">
                                                         <div className="flex items-center gap-2 mb-1">
-                                                            <h4 className={`font-bold dark:text-[#e8ecf5] ${todo.completed ? 'line-through' : ''}`}>{todo.title}</h4>
+                                                            <h4 className={`font-bold dark:text-white ${todo.completed ? 'line-through' : ''}`}>{todo.title}</h4>
                                                             {activeCalendarId === ALL_CALENDARS && <span className={`${color.text} text-xs px-2 py-0.5 rounded-full ${color.light}`}>{cal?.name}</span>}
                                                         </div>
                                                         {todo.description && <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{todo.description}</p>}
@@ -5289,29 +5289,29 @@
 
                     {/* Availability/Poll Modal */}
                     {showAvailabilityModal && (
-                        <div className="fixed inset-0 bg-[#f8f9fb] dark:bg-[#000000] z-50 flex flex-col slide-up overflow-y-auto">
-                            <div className="px-6 py-6 border-b border-[#e2e8f0] dark:border-[#1f1f1f] flex justify-between items-center bg-[#f8f9fb] dark:bg-[#000000] sticky top-0">
+                        <div className="fixed inset-0 bg-white dark:bg-[#121212] z-50 flex flex-col slide-up overflow-y-auto">
+                            <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#121212] sticky top-0">
                                 <h2 className="text-2xl font-bold dark:text-white">Terminfindung</h2>
-                                <button onClick={() => setShowAvailabilityModal(false)} className="p-2 bg-gray-100 dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-full"><Icon name="x" size={24}/></button>
+                                <button onClick={() => setShowAvailabilityModal(false)} className="p-2 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-full"><Icon name="x" size={24}/></button>
                             </div>
                             <div className="p-6 flex-1 bg-[#F8F9FA] dark:bg-[#000000]">
                                 {/* New Proposal Form */}
-                                <div className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-[32px] p-6 mb-6 shadow-sm">
-                                    <h3 className="text-lg font-bold dark:text-[#e8ecf5] mb-4">Neue Umfrage</h3>
+                                <div className="bg-white dark:bg-[#1E1E1E] rounded-[32px] p-6 mb-6 shadow-sm">
+                                    <h3 className="text-lg font-bold dark:text-white mb-4">Neue Umfrage</h3>
                                     <div className="space-y-3">
                                         {activeCalendarId === ALL_CALENDARS && (
-                                            <select className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 font-bold outline-none" value={availabilityProposal.targetCalId || ''} onChange={e => setAvailabilityProposal({...availabilityProposal, targetCalId: e.target.value})}>
+                                            <select className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none" value={availabilityProposal.targetCalId || ''} onChange={e => setAvailabilityProposal({...availabilityProposal, targetCalId: e.target.value})}>
                                                 <option value="">Kalender wählen...</option>
                                                 {myCalendars.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                             </select>
                                         )}
-                                        <input className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 font-bold outline-none" placeholder="Titel (z.B. Team-Meeting)" value={availabilityProposal.title} onChange={e => setAvailabilityProposal({...availabilityProposal, title: e.target.value})} />
+                                        <input className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none" placeholder="Titel (z.B. Team-Meeting)" value={availabilityProposal.title} onChange={e => setAvailabilityProposal({...availabilityProposal, title: e.target.value})} />
                                         
                                         <div>
                                             <label className="text-xs font-bold text-gray-400 uppercase ml-1 mb-2 block">Terminvorschläge</label>
                                             {availabilityProposal.dates.map((date, idx) => (
                                                 <div key={idx} className="flex gap-2 mb-2">
-                                                    <input type="datetime-local" className="flex-1 bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-xl p-3 font-bold outline-none" value={date} onChange={e => {
+                                                    <input type="datetime-local" className="flex-1 bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl p-3 font-bold outline-none" value={date} onChange={e => {
                                                         const updated = [...availabilityProposal.dates];
                                                         updated[idx] = e.target.value;
                                                         setAvailabilityProposal({...availabilityProposal, dates: updated});
@@ -5322,7 +5322,7 @@
                                             <button onClick={() => setAvailabilityProposal({...availabilityProposal, dates: [...availabilityProposal.dates, '']})} className="text-sm text-blue-500 font-bold">+ Termin hinzufügen</button>
                                         </div>
 
-                                        <button onClick={createAvailabilityProposal} className="w-full py-4 bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-[#000000] transition-colors rounded-2xl font-bold shadow-lg">Umfrage Erstellen</button>
+                                        <button onClick={createAvailabilityProposal} className="w-full py-4 bg-black dark:bg-white dark:text-black text-white rounded-2xl font-bold shadow-lg">Umfrage Erstellen</button>
                                     </div>
                                 </div>
 
@@ -5330,13 +5330,13 @@
                                 <div className="space-y-4">
                                     <h3 className="text-sm font-bold uppercase text-gray-400 mb-4">Aktive Umfragen</h3>
                                     {proposals.length === 0 ? (
-                                        <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-[#1f1f1f] rounded-3xl text-sm dark:text-gray-400">Keine Umfragen</div>
+                                        <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-gray-800 rounded-3xl text-sm dark:text-gray-400">Keine Umfragen</div>
                                     ) : proposals.map(proposal => {
                                         const cal = myCalendars.find(c => c.id === proposal.calendarId);
                                         const color = CALENDAR_COLORS.find(c => c.hex === cal?.color) || CALENDAR_COLORS[0];
                                         
                                         return (
-                                            <div key={proposal.id} className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-3xl p-5 shadow-sm">
+                                            <div key={proposal.id} className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-5 shadow-sm">
                                                 <div className="mb-4">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <h4 className="font-bold text-lg dark:text-white">{proposal.title}</h4>
@@ -5354,7 +5354,7 @@
                                                         const myVote = votes[user.uid]?.[idx];
                                                         
                                                         return (
-                                                            <div key={idx} className="bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl p-4">
+                                                            <div key={idx} className="bg-gray-50 dark:bg-[#2D2D2D] rounded-2xl p-4">
                                                                 <div className="flex justify-between items-center mb-2">
                                                                     <div>
                                                                         <div className="font-bold dark:text-white">{dateObj.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
@@ -5365,9 +5365,9 @@
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex gap-2">
-                                                                    <button onClick={() => voteOnProposal(proposal.id, proposal.calendarId, idx, 'yes')} className={`flex-1 py-2 rounded-xl text-sm font-bold ${myVote === 'yes' ? 'bg-green-500 text-white' : 'bg-white dark:bg-[#0f0f0f] text-gray-600 dark:text-gray-300'}`}>✓ Ja</button>
-                                                                    <button onClick={() => voteOnProposal(proposal.id, proposal.calendarId, idx, 'maybe')} className={`flex-1 py-2 rounded-xl text-sm font-bold ${myVote === 'maybe' ? 'bg-yellow-500 text-white' : 'bg-white dark:bg-[#0f0f0f] text-gray-600 dark:text-gray-300'}`}>? Vielleicht</button>
-                                                                    <button onClick={() => voteOnProposal(proposal.id, proposal.calendarId, idx, 'no')} className={`flex-1 py-2 rounded-xl text-sm font-bold ${myVote === 'no' ? 'bg-red-500 text-white' : 'bg-white dark:bg-[#0f0f0f] text-gray-600 dark:text-gray-300'}`}>✗ Nein</button>
+                                                                    <button onClick={() => voteOnProposal(proposal.id, proposal.calendarId, idx, 'yes')} className={`flex-1 py-2 rounded-xl text-sm font-bold ${myVote === 'yes' ? 'bg-green-500 text-white' : 'bg-white dark:bg-[#1E1E1E] text-gray-600 dark:text-gray-300'}`}>✓ Ja</button>
+                                                                    <button onClick={() => voteOnProposal(proposal.id, proposal.calendarId, idx, 'maybe')} className={`flex-1 py-2 rounded-xl text-sm font-bold ${myVote === 'maybe' ? 'bg-yellow-500 text-white' : 'bg-white dark:bg-[#1E1E1E] text-gray-600 dark:text-gray-300'}`}>? Vielleicht</button>
+                                                                    <button onClick={() => voteOnProposal(proposal.id, proposal.calendarId, idx, 'no')} className={`flex-1 py-2 rounded-xl text-sm font-bold ${myVote === 'no' ? 'bg-red-500 text-white' : 'bg-white dark:bg-[#1E1E1E] text-gray-600 dark:text-gray-300'}`}>✗ Nein</button>
                                                                 </div>
                                                             </div>
                                                         );
@@ -5383,16 +5383,16 @@
 
                     {/* Search Panel */}
                     {showSearchPanel && (
-                        <div className="fixed inset-0 bg-[#f8f9fb] dark:bg-[#000000] z-50 flex flex-col slide-up">
-                            <div className="px-6 py-6 border-b border-[#e2e8f0] dark:border-[#1f1f1f] flex justify-between items-center bg-[#f8f9fb] dark:bg-[#000000] sticky top-0">
+                        <div className="fixed inset-0 bg-white dark:bg-[#121212] z-50 flex flex-col slide-up">
+                            <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#121212] sticky top-0">
                                 <h2 className="text-2xl font-bold dark:text-white">Suche</h2>
-                                <button onClick={() => { setShowSearchPanel(false); setSearchQuery(''); }} className="p-2 bg-gray-100 dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-full"><Icon name="x" size={24}/></button>
+                                <button onClick={() => { setShowSearchPanel(false); setSearchQuery(''); }} className="p-2 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-full"><Icon name="x" size={24}/></button>
                             </div>
                             <div className="p-6 flex-1 overflow-y-auto bg-[#F8F9FA] dark:bg-[#000000]">
                                 <div className="mb-6">
                                     <input 
                                         type="text" 
-                                        className="w-full bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5] px-6 py-4 rounded-2xl text-lg outline-none border-2 border-gray-200 dark:border-gray-700 focus:border-black dark:focus:border-white transition-all" 
+                                        className="w-full bg-white dark:bg-[#1E1E1E] dark:text-white px-6 py-4 rounded-2xl text-lg outline-none border-2 border-gray-200 dark:border-gray-700 focus:border-black dark:focus:border-white transition-all" 
                                         placeholder="Termine und TODOs durchsuchen..." 
                                         value={searchQuery}
                                         onChange={e => setSearchQuery(e.target.value)}
@@ -5413,7 +5413,7 @@
                                                         const calendarColor = CALENDAR_COLORS.find(c => c.hex === cal?.color) || CALENDAR_COLORS[0];
                                                         const color = categoryColor || calendarColor;
                                                         return (
-                                                            <div key={ev.id} className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-2xl p-4 shadow-sm" onClick={() => { setSelectedDate(ev.date); setShowSearchPanel(false); setSearchQuery(''); }}>
+                                                            <div key={ev.id} className="bg-white dark:bg-[#1E1E1E] rounded-2xl p-4 shadow-sm" onClick={() => { setSelectedDate(ev.date); setShowSearchPanel(false); setSearchQuery(''); }}>
                                                                 <div className="flex items-center gap-3">
                                                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color.light} ${color.text}`}>
                                                                         <Icon name="calendar" size={16} />
@@ -5439,7 +5439,7 @@
                                                         const cal = myCalendars.find(c => c.id === todo.calendarId);
                                                         const color = CALENDAR_COLORS.find(c => c.hex === cal?.color) || CALENDAR_COLORS[0];
                                                         return (
-                                                            <div key={todo.id} className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-2xl p-4 shadow-sm" onClick={() => { setShowTodoModal(true); setShowSearchPanel(false); setSearchQuery(''); }}>
+                                                            <div key={todo.id} className="bg-white dark:bg-[#1E1E1E] rounded-2xl p-4 shadow-sm" onClick={() => { setShowTodoModal(true); setShowSearchPanel(false); setSearchQuery(''); }}>
                                                                 <div className="flex items-center gap-3">
                                                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color.light} ${color.text}`}>
                                                                         <Icon name="check" size={16} />
@@ -5471,10 +5471,10 @@
                     {/* Backup/Restore Modal */}
                     {showBackupModal && (
                         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                            <div className="bg-[#ffffff] dark:bg-[#0f0f0f] w-full max-w-md rounded-[32px] p-6 shadow-2xl slide-up">
+                            <div className="bg-white dark:bg-[#1E1E1E] w-full max-w-md rounded-[32px] p-6 shadow-2xl slide-up">
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="text-xl font-bold dark:text-white">Backup & Restore</h3>
-                                    <button onClick={() => setShowBackupModal(false)} className="p-2 bg-gray-50 dark:bg-[#1a1a1a] rounded-full text-gray-400"><Icon name="x" size={20}/></button>
+                                    <button onClick={() => setShowBackupModal(false)} className="p-2 bg-gray-50 dark:bg-[#2D2D2D] rounded-full text-gray-400"><Icon name="x" size={20}/></button>
                                 </div>
                                 
                                 <div className="space-y-4">
@@ -5506,13 +5506,13 @@
                     )}
 
                     {/* Add Friend - REMAINS FOR GLOBAL SEARCH IF NEEDED, BUT MEMBER ADD IS NOW IN CALENDAR SETTINGS */}
-                    {showSearchModal && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4"><div className="bg-[#ffffff] dark:bg-[#0f0f0f] w-full max-w-sm rounded-[32px] p-6 shadow-2xl slide-up"><h3 className="text-lg font-bold mb-4 dark:text-white">Freund +</h3><input className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] p-4 rounded-xl mb-4 font-bold outline-none" placeholder="Username" value={searchName} onChange={e => setSearchName(e.target.value)} /><button onClick={()=>{}} className="w-full py-3 bg-black dark:bgwhite dark:text-black text-white rounded-xl font-bold mb-2">Hinzufügen</button><button onClick={()=>setShowSearchModal(false)} className="w-full py-3 text-gray-400 text-sm font-bold">Abbrechen</button></div></div>}
+                    {showSearchModal && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4"><div className="bg-white dark:bg-[#1E1E1E] w-full max-w-sm rounded-[32px] p-6 shadow-2xl slide-up"><h3 className="text-lg font-bold mb-4 dark:text-white">Freund +</h3><input className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white p-4 rounded-xl mb-4 font-bold outline-none" placeholder="Username" value={searchName} onChange={e => setSearchName(e.target.value)} /><button onClick={()=>{}} className="w-full py-3 bg-black dark:bgwhite dark:text-black text-white rounded-xl font-bold mb-2">Hinzufügen</button><button onClick={()=>setShowSearchModal(false)} className="w-full py-3 text-gray-400 text-sm font-bold">Abbrechen</button></div></div>}
 
                     {/* Conflict Detection Modal */}
                     {showConflictModal && conflictData && (
                         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                            <div className="bg-[#ffffff] dark:bg-[#0f0f0f] w-full max-w-md rounded-[32px] p-6 shadow-2xl slide-up">
-                                <h3 className="text-xl font-bold mb-4 dark:text-[#e8ecf5] text-red-500">⚠️ Zeitkonflikt erkannt!</h3>
+                            <div className="bg-white dark:bg-[#1E1E1E] w-full max-w-md rounded-[32px] p-6 shadow-2xl slide-up">
+                                <h3 className="text-xl font-bold mb-4 dark:text-white text-red-500">⚠️ Zeitkonflikt erkannt!</h3>
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                                     {conflictData.conflicts.length} überlappende(s) Event(s) gefunden:
                                 </p>
@@ -5566,18 +5566,18 @@
 
                     {/* Habits Modal */}
                     {showHabitsModal && (
-                        <div className="fixed inset-0 bg-[#f8f9fb] dark:bg-[#000000] z-50 flex flex-col slide-up">
-                            <div className="px-6 py-6 border-b border-[#e2e8f0] dark:border-[#1f1f1f] flex justify-between items-center bg-[#f8f9fb] dark:bg-[#000000] sticky top-0">
+                        <div className="fixed inset-0 bg-white dark:bg-[#121212] z-50 flex flex-col slide-up">
+                            <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#121212] sticky top-0">
                                 <h2 className="text-2xl font-bold dark:text-white">🎯 Habit Tracker</h2>
-                                <button onClick={() => setShowHabitsModal(false)} className="p-2 bg-gray-100 dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-full"><Icon name="x" size={24}/></button>
+                                <button onClick={() => setShowHabitsModal(false)} className="p-2 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-full"><Icon name="x" size={24}/></button>
                             </div>
                             <div className="p-6 flex-1 overflow-y-auto bg-[#F8F9FA] dark:bg-[#000000]">
                                 {/* New Habit Form */}
-                                <div className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-[32px] p-6 mb-6 shadow-sm">
-                                    <h3 className="text-lg font-bold dark:text-[#e8ecf5] mb-4">Neues Habit</h3>
+                                <div className="bg-white dark:bg-[#1E1E1E] rounded-[32px] p-6 mb-6 shadow-sm">
+                                    <h3 className="text-lg font-bold dark:text-white mb-4">Neues Habit</h3>
                                     <div className="flex gap-2">
                                         <input 
-                                            className="flex-1 bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 font-bold outline-none" 
+                                            className="flex-1 bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-2xl p-4 font-bold outline-none" 
                                             placeholder="Habit Name"
                                             onKeyPress={e => {
                                                 if (e.key === 'Enter') {
@@ -5594,7 +5594,7 @@
                                                     input.value = '';
                                                 }
                                             }}
-                                            className="px-6 bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-[#000000] transition-colors rounded-2xl font-bold"
+                                            className="px-6 bg-black dark:bg-white dark:text-black text-white rounded-2xl font-bold"
                                         >
                                             <Icon name="plus" size={20}/>
                                         </button>
@@ -5608,7 +5608,7 @@
                                         <div className="text-xs text-gray-400">Fokus heute: {focusStats.todayMinutes}min | Woche: {focusStats.weekMinutes}min</div>
                                     </div>
                                     {habits.length === 0 ? (
-                                        <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-[#1f1f1f] rounded-3xl text-sm dark:text-gray-400">Keine Habits</div>
+                                        <div className="text-center py-8 opacity-50 border-2 border-dashed dark:border-gray-800 rounded-3xl text-sm dark:text-gray-400">Keine Habits</div>
                                     ) : habits.map(habit => {
                                         const today = new Date();
                                         today.setHours(0, 0, 0, 0);
@@ -5633,10 +5633,10 @@
                                         }
                                         
                                         return (
-                                            <div key={habit.id} className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-3xl p-5 shadow-sm">
+                                            <div key={habit.id} className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-5 shadow-sm">
                                                 <div className="flex items-start justify-between mb-3">
                                                     <div className="flex-1">
-                                                        <h4 className="font-bold text-lg dark:text-[#e8ecf5] flex items-center gap-2">
+                                                        <h4 className="font-bold text-lg dark:text-white flex items-center gap-2">
                                                             {habit.emoji && <span>{habit.emoji}</span>}
                                                             {habit.name}
                                                         </h4>
@@ -5647,7 +5647,7 @@
                                                     <div className="flex gap-2">
                                                         <button 
                                                             onClick={() => logHabit(habit.id)} 
-                                                            className={`p-3 rounded-xl font-bold text-sm ${isLoggedToday ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400'}`}
+                                                            className={`p-3 rounded-xl font-bold text-sm ${isLoggedToday ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-[#2D2D2D] text-gray-600 dark:text-gray-400'}`}
                                                         >
                                                             {isLoggedToday ? '✓' : '○'}
                                                         </button>
@@ -5677,16 +5677,16 @@
 
                     {/* Templates Modal */}
                     {showTemplatesModal && (
-                        <div className="fixed inset-0 bg-[#f8f9fb] dark:bg-[#000000] z-50 flex flex-col slide-up">
-                            <div className="px-6 py-6 border-b border-[#e2e8f0] dark:border-[#1f1f1f] flex justify-between items-center bg-[#f8f9fb] dark:bg-[#000000] sticky top-0">
+                        <div className="fixed inset-0 bg-white dark:bg-[#121212] z-50 flex flex-col slide-up">
+                            <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-[#121212] sticky top-0">
                                 <h2 className="text-2xl font-bold dark:text-white">📋 Kalender Templates</h2>
-                                <button onClick={() => setShowTemplatesModal(false)} className="p-2 bg-gray-100 dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-full"><Icon name="x" size={24}/></button>
+                                <button onClick={() => setShowTemplatesModal(false)} className="p-2 bg-gray-100 dark:bg-[#1E1E1E] dark:text-white rounded-full"><Icon name="x" size={24}/></button>
                             </div>
                             <div className="p-6 flex-1 overflow-y-auto bg-[#F8F9FA] dark:bg-[#000000]">
                                 <div className="space-y-3">
                                     {templates.map(template => (
-                                        <div key={template.id} className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-3xl p-5 shadow-sm">
-                                            <h4 className="font-bold text-lg dark:text-[#e8ecf5] mb-2">{template.name}</h4>
+                                        <div key={template.id} className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-5 shadow-sm">
+                                            <h4 className="font-bold text-lg dark:text-white mb-2">{template.name}</h4>
                                             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                                                 {template.events.length} Events über {Math.max(...template.events.map(e => e.dayOffset)) + 1} Tage
                                             </p>
@@ -5704,15 +5704,15 @@
                                 </div>
                                 
                                 {/* Copy Day Schedule */}
-                                <div className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-3xl p-5 shadow-sm mt-6">
-                                    <h4 className="font-bold text-lg dark:text-[#e8ecf5] mb-4">📅 Tagesablauf kopieren</h4>
+                                <div className="bg-white dark:bg-[#1E1E1E] rounded-3xl p-5 shadow-sm mt-6">
+                                    <h4 className="font-bold text-lg dark:text-white mb-4">📅 Tagesablauf kopieren</h4>
                                     <div className="space-y-3">
                                         <div>
                                             <label className="text-xs font-bold text-gray-400 uppercase ml-1">Von Datum</label>
                                             <input 
                                                 type="date" 
                                                 id="copySourceDate"
-                                                className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-xl p-3 font-bold outline-none mt-1"
+                                                className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl p-3 font-bold outline-none mt-1"
                                             />
                                         </div>
                                         <div>
@@ -5720,7 +5720,7 @@
                                             <input 
                                                 type="date" 
                                                 id="copyTargetDate"
-                                                className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-xl p-3 font-bold outline-none mt-1"
+                                                className="w-full bg-gray-50 dark:bg-[#2D2D2D] dark:text-white rounded-xl p-3 font-bold outline-none mt-1"
                                             />
                                         </div>
                                         <button 
@@ -5764,7 +5764,7 @@
                         />
                     )}
 
-                    {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-[#000000] transition-colors px-6 py-3 rounded-full text-sm font-bold shadow-xl z-[100] flex items-center gap-2 slide-up"><Icon name="check" size={16} className="text-green-400"/> {toast}</div>}
+                    {toast && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-black dark:bg-white dark:text-black text-white px-6 py-3 rounded-full text-sm font-bold shadow-xl z-[100] flex items-center gap-2 slide-up"><Icon name="check" size={16} className="text-green-400"/> {toast}</div>}
                 </div>
             );
         };
