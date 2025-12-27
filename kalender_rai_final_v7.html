@@ -2970,12 +2970,13 @@
             };
 
 
-            const [newEvent, setNewEvent] = useState({ title: '', description: '', time: '12:00', durationMin: 60, category: 'Arbeit', subCategory: '', targetCalId: '', recurrence: null, recurrenceEndDate: null, reminders: [], emoji: '', isFocus: false, isAllDay: false, attachments: [] });
+            const [newEvent, setNewEvent] = useState({ title: '', description: '', time: '12:00', durationMin: 60, category: 'Arbeit', subCategory: '', targetCalId: '', recurrence: null, recurrenceEndDate: null, reminders: [], emoji: '', isFocus: false, isAllDay: false, attachments: [], requestRecipients: [] });
             const [todos, setTodos] = useState([]);
             const [showTodoModal, setShowTodoModal] = useState(false);
             const [newTodo, setNewTodo] = useState({ title: '', description: '', dueDate: '', assignedTo: '', targetCalId: '', checklist: [], completed: false });
             const [proposals, setProposals] = useState([]);
             const [searchName, setSearchName] = useState('');
+            const [requestSendToAll, setRequestSendToAll] = useState(true);
             const [expandedSettingsId, setExpandedSettingsId] = useState(null);
             const [editName, setEditName] = useState('');
             const [editCalendarName, setEditCalendarName] = useState('');
@@ -3438,6 +3439,19 @@
                         return;
                     }
                     
+                    const cal = myCalendars.find(c => c && c.id === calId);
+                    if (!cal) {
+                        showToast("Kalender nicht gefunden");
+                        return;
+                    }
+                    
+                    // Check if user is admin
+                    const currentUserMember = cal.members?.find(m => m.uid === user.uid);
+                    if (!currentUserMember || currentUserMember.role !== ROLES.ADMIN) {
+                        showToast("Nur Admins können Mitglieder hinzufügen");
+                        return;
+                    }
+                    
                     const username = memberAddName.trim();
                     const snap = await db.collection('users').where('username', '==', username).get();
                     
@@ -3460,12 +3474,6 @@
                     if (newUserUid === user.uid) {
                         showToast("Du bist bereits Mitglied");
                         setMemberAddName('');
-                        return;
-                    }
-                    
-                    const cal = myCalendars.find(c => c && c.id === calId);
-                    if (!cal) {
-                        showToast("Kalender nicht gefunden");
                         return;
                     }
                     
@@ -3531,6 +3539,12 @@
                 if(isDemo) return;
                 let targetId = activeCalendarId === ALL_CALENDARS ? newEvent.targetCalId : activeCalendarId;
                 if (!targetId) { showToast("Bitte Kalender wählen"); return; }
+                
+                // Check recipients for requests
+                if (isRequest && !requestSendToAll && (!newEvent.requestRecipients || newEvent.requestRecipients.length === 0)) {
+                    showToast("Bitte mindestens einen Empfänger auswählen");
+                    return;
+                }
 
                 const d = new Date(selectedDate);
                 
@@ -3543,7 +3557,7 @@
                 }
                 
                 const coll = isRequest ? 'requests' : 'events';
-                await db.collection('calendars').doc(targetId).collection(coll).add({
+                const eventData = {
                     title: newEvent.title, description: newEvent.description || '', date: firebase.firestore.Timestamp.fromDate(d), 
                     category: newEvent.category, subCategory: newEvent.subCategory, createdBy: user.uid, createdByName: user.displayName, 
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(), 
@@ -3557,9 +3571,18 @@
                     isAllDay: newEvent.isAllDay || false,
                     time: newEvent.isAllDay ? '' : newEvent.time,
                     attachments: newEvent.attachments || []
-                });
+                };
+                
+                // Add recipient info for requests
+                if (isRequest) {
+                    eventData.sendToAll = requestSendToAll;
+                    eventData.recipients = requestSendToAll ? [] : (newEvent.requestRecipients || []);
+                }
+                
+                await db.collection('calendars').doc(targetId).collection(coll).add(eventData);
                 setShowAddEventModal(false);
-                setNewEvent({ ...newEvent, title: '', description: '', reminders: [], recurrence: null, recurrenceEndDate: null, durationMin: 60, emoji: '', isFocus: false, isAllDay: false, time: '12:00', attachments: [] });
+                setNewEvent({ ...newEvent, title: '', description: '', reminders: [], recurrence: null, recurrenceEndDate: null, durationMin: 60, emoji: '', isFocus: false, isAllDay: false, time: '12:00', attachments: [], requestRecipients: [] });
+                setRequestSendToAll(true);
                 showToast(isRequest ? "Anfrage gesendet" : "Gespeichert");
             };
 
@@ -5917,6 +5940,72 @@
                                                 </p>
                                             </div>
                                         )}
+                                    </div>
+                                    
+                                    {/* Recipient Selection for Requests */}
+                                    <div className="mb-4 p-4 bg-gray-50 dark:bg-[#1a1a1a] rounded-2xl">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-sm font-bold dark:text-white">Anfrage senden an:</span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-[#0f0f0f] rounded-lg cursor-pointer transition-colors">
+                                                <input 
+                                                    type="radio" 
+                                                    name="requestRecipients"
+                                                    checked={requestSendToAll}
+                                                    onChange={() => setRequestSendToAll(true)}
+                                                    className="w-4 h-4"
+                                                />
+                                                <span className="text-sm dark:text-[#e8ecf5]">Alle Mitglieder</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-[#0f0f0f] rounded-lg cursor-pointer transition-colors">
+                                                <input 
+                                                    type="radio" 
+                                                    name="requestRecipients"
+                                                    checked={!requestSendToAll}
+                                                    onChange={() => setRequestSendToAll(false)}
+                                                    className="w-4 h-4"
+                                                />
+                                                <span className="text-sm dark:text-[#e8ecf5]">Bestimmte Mitglieder auswählen</span>
+                                            </label>
+                                            
+                                            {!requestSendToAll && (() => {
+                                                const targetId = activeCalendarId === ALL_CALENDARS ? newEvent.targetCalId : activeCalendarId;
+                                                const targetCal = myCalendars.find(c => c && c.id === targetId);
+                                                const calMembers = targetCal?.members?.filter(m => m.uid !== user.uid) || [];
+                                                
+                                                return (
+                                                    <div className="mt-3 space-y-2 pl-6">
+                                                        {calMembers.length === 0 ? (
+                                                            <p className="text-xs text-gray-400">Keine anderen Mitglieder im Kalender</p>
+                                                        ) : (
+                                                            calMembers.map(member => (
+                                                                <label key={member.uid} className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-[#0f0f0f] rounded-lg cursor-pointer transition-colors">
+                                                                    <input 
+                                                                        type="checkbox" 
+                                                                        checked={newEvent.requestRecipients?.includes(member.uid) || false}
+                                                                        onChange={(e) => {
+                                                                            const current = newEvent.requestRecipients || [];
+                                                                            const updated = e.target.checked 
+                                                                                ? [...current, member.uid]
+                                                                                : current.filter(uid => uid !== member.uid);
+                                                                            setNewEvent({...newEvent, requestRecipients: updated});
+                                                                        }}
+                                                                        className="w-4 h-4"
+                                                                    />
+                                                                    <span className="text-sm dark:text-[#e8ecf5]">{member.name}</span>
+                                                                </label>
+                                                            ))
+                                                        )}
+                                                        {calMembers.length > 0 && (
+                                                            <p className="text-xs text-gray-400 mt-2">
+                                                                {newEvent.requestRecipients?.length || 0} von {calMembers.length} ausgewählt
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
                                     </div>
                                     
                                     <div className="pt-4 flex flex-col gap-2">
