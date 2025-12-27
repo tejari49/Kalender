@@ -673,7 +673,7 @@
         };
 
         // --- ARCHIV (E2EE via WebCrypto + Firestore) ---
-        const VaultPanel = ({ user, db, userData, onClose, notificationsEnabled, setNotificationsEnabled, showToast }) => {
+        const VaultPanel = ({ user, db, userData, myCalendars, onClose, notificationsEnabled, setNotificationsEnabled, showToast }) => {
             const [ready, setReady] = useState(false);
             const [mySecretId, setMySecretId] = useState(userData?.secretId || '');
             const [convs, setConvs] = useState([]);
@@ -1960,7 +1960,7 @@
                                 </div>
                             </div>
 
-                            <div className="text-xs font-bold uppercase text-gray-400 mb-3 ml-1">Verknüpfungen</div>
+                            <div className="text-xs font-bold uppercase text-gray-400 mb-3 ml-1">Verknüpfungen ({convs.length})</div>
                             <div className="space-y-3">
                                 {convs.length === 0 ? (
                                     <div className="text-center py-10 opacity-50 border-2 border-dashed dark:border-[#1f1f1f] rounded-3xl text-sm dark:text-gray-400">
@@ -1970,14 +1970,24 @@
                                     const other = getOtherUid(c);
                                     const name = profiles[other]?.username || shortUid(other);
                                     const last = c.lastMessageAt?.toDate?.() ? c.lastMessageAt.toDate().toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+                                    
+                                    // Check if this user is in any calendar
+                                    const sharedCalendars = (myCalendars || []).filter(cal => 
+                                        cal.memberIds?.includes(other)
+                                    );
+                                    const inCalendar = sharedCalendars.length > 0;
+                                    
                                     return (
-                                        <button key={c.id} onClick={() => { setActiveConvId(c.id); setView('detail'); }} className="w-full text-left bg-[#ffffff] dark:bg-[#0f0f0f] p-5 rounded-[28px] shadow-sm flex items-center justify-between">
+                                        <button key={c.id} onClick={() => { setActiveConvId(c.id); setView('detail'); }} className="w-full text-left bg-[#ffffff] dark:bg-[#0f0f0f] p-5 rounded-[28px] shadow-sm flex items-center justify-between hover:ring-2 hover:ring-[#2563eb] dark:hover:ring-[#4da3ff] transition-all">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-2xl bg-gray-50 dark:bg-[#1a1a1a] flex items-center justify-center">
                                                     <Icon name="user" />
                                                 </div>
                                                 <div>
-                                                    <div className="font-bold dark:text-white">{name}</div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold dark:text-white">{name}</span>
+                                                        {inCalendar && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" title={`In ${sharedCalendars.length} Kalender(n)`}>📅 {sharedCalendars.length}</span>}
+                                                    </div>
                                                     <div className="text-[11px] text-gray-400">{profiles[other]?.secretId ? `Code: ${profiles[other].secretId}` : shortUid(other)}</div>
                                                 </div>
                                             </div>
@@ -3358,31 +3368,104 @@
 
             // MEMBER FUNCTIONS
             const addMemberToCalendar = async (calId) => {
-                if (!memberAddName.trim()) return;
+                if (!memberAddName.trim()) {
+                    showToast("Bitte Username eingeben");
+                    return;
+                }
+                
                 try {
-                    const snap = await db.collection('users').where('username', '==', memberAddName.trim()).get();
-                    if (snap.empty) { showToast("User nicht gefunden"); return; }
-                    const newUser = snap.docs[0].data();
+                    if (!db) {
+                        showToast('Datenbank nicht verfügbar');
+                        return;
+                    }
                     
-                    const cal = myCalendars.find(c => c.id === calId);
-                    if (cal?.memberIds?.includes(newUser.uid)) { showToast("Bereits Mitglied"); return; }
+                    const username = memberAddName.trim();
+                    const snap = await db.collection('users').where('username', '==', username).get();
                     
+                    if (snap.empty) { 
+                        showToast(`User "${username}" nicht gefunden`); 
+                        return; 
+                    }
+                    
+                    const newUserDoc = snap.docs[0];
+                    const newUser = newUserDoc.data();
+                    const newUserUid = newUserDoc.id;
+                    
+                    // Check if user exists
+                    if (!newUserUid) {
+                        showToast("Ungültige User-ID");
+                        return;
+                    }
+                    
+                    // Check if it's the current user
+                    if (newUserUid === user.uid) {
+                        showToast("Du bist bereits Mitglied");
+                        setMemberAddName('');
+                        return;
+                    }
+                    
+                    const cal = myCalendars.find(c => c && c.id === calId);
+                    if (!cal) {
+                        showToast("Kalender nicht gefunden");
+                        return;
+                    }
+                    
+                    // Check if already a member
+                    if (cal.memberIds?.includes(newUserUid)) { 
+                        showToast(`${username} ist bereits Mitglied`); 
+                        setMemberAddName('');
+                        return; 
+                    }
+                    
+                    // Add member
                     await db.collection('calendars').doc(calId).update({
-                        memberIds: firebase.firestore.FieldValue.arrayUnion(newUser.uid),
-                        members: firebase.firestore.FieldValue.arrayUnion({ uid: newUser.uid, name: newUser.username, role: ROLES.EDITOR })
+                        memberIds: firebase.firestore.FieldValue.arrayUnion(newUserUid),
+                        members: firebase.firestore.FieldValue.arrayUnion({ 
+                            uid: newUserUid, 
+                            name: newUser.username || newUser.displayName || 'Unbekannt', 
+                            role: ROLES.EDITOR 
+                        })
                     });
+                    
                     setMemberAddName('');
-                    showToast("Hinzugefügt");
-                } catch(e) { showToast("Fehler"); }
+                    showToast(`✓ ${username} hinzugefügt`);
+                } catch(e) { 
+                    console.error('Add member error:', e);
+                    showToast("Fehler beim Hinzufügen: " + (e.message || 'Unbekannter Fehler')); 
+                }
             };
 
             const removeMemberFromCalendar = async (calId, memberUid) => {
-                if (!confirm("Mitglied entfernen?")) return;
-                const cal = myCalendars.find(c => c.id === calId);
-                if (!cal) { showToast("Kalender nicht gefunden"); return; }
-                const updatedMembers = cal.members.filter(m => m.uid !== memberUid);
-                const updatedIds = cal.memberIds.filter(id => id !== memberUid);
-                await db.collection('calendars').doc(calId).update({ members: updatedMembers, memberIds: updatedIds });
+                try {
+                    const cal = myCalendars.find(c => c && c.id === calId);
+                    if (!cal) { 
+                        showToast("Kalender nicht gefunden"); 
+                        return; 
+                    }
+                    
+                    const member = cal.members?.find(m => m.uid === memberUid);
+                    const memberName = member?.name || 'Mitglied';
+                    
+                    if (!confirm(`"${memberName}" aus "${cal.name}" entfernen?`)) return;
+                    
+                    if (!db) {
+                        showToast('Datenbank nicht verfügbar');
+                        return;
+                    }
+                    
+                    const updatedMembers = cal.members.filter(m => m.uid !== memberUid);
+                    const updatedIds = cal.memberIds.filter(id => id !== memberUid);
+                    
+                    await db.collection('calendars').doc(calId).update({ 
+                        members: updatedMembers, 
+                        memberIds: updatedIds 
+                    });
+                    
+                    showToast(`✓ ${memberName} entfernt`);
+                } catch(e) {
+                    console.error('Remove member error:', e);
+                    showToast('Fehler beim Entfernen: ' + (e.message || 'Unbekannter Fehler'));
+                }
             };
 
             const handleCreateEvent = async (isRequest = false) => {
@@ -4964,16 +5047,26 @@
                                                     
                                                     {/* MEMBER MANAGEMENT */}
                                                     <div className="mb-4 bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl">
-                                                        <span className="text-sm font-bold dark:text-[#e8ecf5] mb-2 block">Mitglieder</span>
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <span className="text-sm font-bold dark:text-[#e8ecf5]">Mitglieder</span>
+                                                            <span className="text-[10px] text-gray-400">🔒 = Chat verbunden</span>
+                                                        </div>
                                                         <div className="space-y-2 mb-3">
-                                                            {cal.members.map(m => (
-                                                                <div key={m.uid} className="flex justify-between items-center text-xs dark:text-gray-300">
-                                                                    <span>{m.name} {m.role === ROLES.ADMIN && '(Admin)'}</span>
-                                                                    {iAmAdmin && m.uid !== user.uid && (
-                                                                        <button onClick={() => removeMemberFromCalendar(cal.id, m.uid)} className="text-red-500"><Icon name="trash" size={14}/></button>
-                                                                    )}
-                                                                </div>
-                                                            ))}
+                                                            {cal.members.map(m => {
+                                                                // Check if this member has a secretId (chat connection possible)
+                                                                const hasSecretId = userData?.connectedUsers?.includes(m.uid);
+                                                                return (
+                                                                    <div key={m.uid} className="flex justify-between items-center text-xs dark:text-gray-300">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span>{m.name} {m.role === ROLES.ADMIN && '(Admin)'}</span>
+                                                                            {m.uid !== user.uid && hasSecretId && <span className="text-[10px]">🔒</span>}
+                                                                        </div>
+                                                                        {iAmAdmin && m.uid !== user.uid && (
+                                                                            <button onClick={() => removeMemberFromCalendar(cal.id, m.uid)} className="text-red-500"><Icon name="trash" size={14}/></button>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                         {iAmAdmin && (
                                                             <div className="flex gap-2">
@@ -5842,6 +5935,7 @@
                             user={user}
                             db={db}
                             userData={userData}
+                            myCalendars={myCalendars}
                             notificationsEnabled={notificationsEnabled}
                             setNotificationsEnabled={setNotificationsEnabled}
                             showToast={showToast}
