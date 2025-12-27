@@ -267,6 +267,7 @@
                 clock: <><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></>,
                 repeat: <><path d="M17 1l4 4-4 4" /><path d="M3 11V9a4 4 0 014-4h14" /><path d="M7 23l-4-4 4-4" /><path d="M21 13v2a4 4 0 01-4 4H3" /></>,
                 layers: <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />,
+                grid: <><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></>,
                 tag: <><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></>,
                 briefcase: <><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></>
             };
@@ -4388,7 +4389,7 @@
                             </div>
                             {showCalendarSwitcher && (
                                 <div className="absolute top-10 left-0 bg-[#ffffff] dark:bg-[#0f0f0f] rounded-2xl shadow-xl border border-[#e2e8f0] dark:border-[#1f1f1f] p-2 w-56 z-20 slide-up">
-                                    <button onClick={()=>{setActiveCalendarId(ALL_CALENDARS); setShowCalendarSwitcher(false);}} className={`w-full text-left px-4 py-3 rounded-xl flex itemscenter gap-3 ${activeCalendarId===ALL_CALENDARS ? 'bg-black text-white dark:bgwhite dark:text-black' : 'hover:bg-gray-50 dark:hover:bg-[#2D2D2D] dark:text-white'}`}>
+                                    <button onClick={()=>{setActiveCalendarId(ALL_CALENDARS); setShowCalendarSwitcher(false);}} className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 ${activeCalendarId===ALL_CALENDARS ? 'bg-[#2563eb] text-white dark:bg-[#4da3ff] dark:text-black' : 'hover:bg-gray-50 dark:hover:bg-[#1a1a1a] dark:text-[#e8ecf5]'}`}>
                                         <Icon name="layers" size={16}/> <span className="font-bold text-sm">Alle Kalender</span>
                                     </button>
                                     <div className="h-px bg-gray-100 dark:bg-gray-800 my-1"></div>
@@ -5006,7 +5007,7 @@
                                                         </div>
                                                         <div className="flex gap-2">
                                                             <input className="flex-1 bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5] px-3 py-2 rounded-xl text-sm outline-none border border-gray-200 dark:border-gray-700" placeholder="Neue Unterkategorie..." value={newSubCatName} onChange={e=>setNewSubCatName(e.target.value)}/>
-                                                            <button onClick={()=>addSubCategory(cat)} className="bg-black dark:bgwhite dark:text-black text-white px-3 rounded-xl"><Icon name="plus" size={16}/></button>
+                                                            <button onClick={()=>addSubCategory(cat)} className="bg-[#2563eb] dark:bg-[#4da3ff] dark:text-black text-white px-3 rounded-xl"><Icon name="plus" size={16}/></button>
                                                         </div>
                                                         <button onClick={()=>deleteMainCategory(cat)} className="w-full mt-4 py-2 text-red-500 text-xs font-bold uppercase bg-red-50 dark:bg-red-900/20 rounded-xl">Kategorie Löschen</button>
                                                     </div>
@@ -5187,7 +5188,7 @@
                                         </select>
                                     </div>
                                     <div className="pt-4 flex flex-col gap-2">
-                                        <button onClick={()=>handleCreateEvent()} className="w-full py-4 bg-black dark:bgwhite dark:text-black text-white rounded-2xl font-bold shadow-lg">Speichern</button>
+                                        <button onClick={()=>handleCreateEvent()} className="w-full py-4 bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-black rounded-2xl font-bold shadow-lg transition-colors">Speichern</button>
                                         <button onClick={()=>handleCreateEvent(true)} className="w-full py-4 bg-gray-100 dark:bg-[#1a1a1a] text-gray-600 dark:text-[#e8ecf5] rounded-2xl font-bold">Als Anfrage senden</button>
                                     </div>
                                 </div>
