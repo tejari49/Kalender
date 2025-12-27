@@ -268,6 +268,7 @@
                 repeat: <><path d="M17 1l4 4-4 4" /><path d="M3 11V9a4 4 0 014-4h14" /><path d="M7 23l-4-4 4-4" /><path d="M21 13v2a4 4 0 01-4 4H3" /></>,
                 layers: <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />,
                 grid: <><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></>,
+                filter: <><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></>,
                 tag: <><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></>,
                 briefcase: <><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></>
             };
@@ -2701,6 +2702,7 @@
             // New Features
             const [searchQuery, setSearchQuery] = useState('');
             const [showSearchPanel, setShowSearchPanel] = useState(false);
+            const [showFilterMenu, setShowFilterMenu] = useState(false);
             const [calendarView, setCalendarView] = useState('month'); // 'month' or 'week'
             const [showBackupModal, setShowBackupModal] = useState(false);
             
@@ -2717,6 +2719,16 @@
             const [selectedEventIds, setSelectedEventIds] = useState([]);
             const [showConflictModal, setShowConflictModal] = useState(false);
             const [conflictData, setConflictData] = useState(null);
+            
+            // Filter State
+            const [eventFilters, setEventFilters] = useState({
+                showMyEventsOnly: false,
+                showAllDay: true,
+                showTimed: true,
+                labels: [], // future: filter by labels/tags
+                participants: [], // future: filter by participants
+                location: '' // future: filter by location
+            });
 
 
             const [todayBlinkToken, setTodayBlinkToken] = useState(0);
@@ -4253,6 +4265,9 @@
                     if(!e.date) return;
                     if (activeCalendarId !== ALL_CALENDARS && e.calendarId && e.calendarId !== activeCalendarId) return;
                     
+                    // Apply "My Events Only" filter
+                    if (eventFilters.showMyEventsOnly && e.createdBy !== user?.uid) return;
+                    
                     const isSameDate = e.date.toDateString() === selectedDate.toDateString();
                     
                     if (isSameDate) {
@@ -4269,6 +4284,9 @@
                     if(!req.date) return;
                     if (activeCalendarId !== ALL_CALENDARS && req.calendarId && req.calendarId !== activeCalendarId) return;
                     
+                    // Apply "My Events Only" filter
+                    if (eventFilters.showMyEventsOnly && req.createdBy !== user?.uid) return;
+                    
                     const isSameDate = req.date.toDateString() === selectedDate.toDateString();
                     if (isSameDate) {
                         result.push(req);
@@ -4276,7 +4294,7 @@
                 });
                 
                 return result.sort((a,b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
-            }, [events, requests, activeCalendarId, selectedDate]);
+            }, [events, requests, activeCalendarId, selectedDate, eventFilters, user]);
 
             const filteredTodos = useMemo(() => {
                 return todos.filter(t => {
@@ -4426,6 +4444,25 @@
                         <div className="flex gap-2">
                             <button onClick={() => setCurrentDate(new Date())} className={`px-3 bg-white dark:bg-[#0f0f0f] rounded-2xl shadow-sm font-bold text-xs uppercase dark:text-[#e8ecf5] ${todayBlinkToken ? "blink-attn" : ""}`}>Heute</button>
                             <button onClick={() => setShowSearchPanel(true)} className="p-3 bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-2xl shadow-sm" title="Suchen"><Icon name="search"/></button>
+                            <div className="relative">
+                                <button onClick={() => setShowFilterMenu(!showFilterMenu)} className={`p-3 ${eventFilters.showMyEventsOnly ? 'bg-[#2563eb] text-white dark:bg-[#4da3ff] dark:text-black' : 'bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5]'} rounded-2xl shadow-sm`} title="Filter"><Icon name="filter"/></button>
+                                {showFilterMenu && (
+                                    <div className="absolute top-14 right-0 bg-[#ffffff] dark:bg-[#0f0f0f] rounded-2xl shadow-xl border border-[#e2e8f0] dark:border-[#1f1f1f] p-4 w-64 z-20 slide-up">
+                                        <h3 className="font-bold text-sm mb-3 dark:text-[#e8ecf5]">Filter</h3>
+                                        <div className="space-y-2">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="custom-checkbox"
+                                                    checked={eventFilters.showMyEventsOnly}
+                                                    onChange={e => setEventFilters({...eventFilters, showMyEventsOnly: e.target.checked})}
+                                                />
+                                                <span className="text-sm dark:text-[#e8ecf5]">Nur meine Events</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                             <button onClick={() => setCalendarView(calendarView === 'month' ? 'week' : 'month')} className="p-3 bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-2xl shadow-sm" title={calendarView === 'month' ? 'Wochenansicht' : 'Monatsansicht'}><Icon name={calendarView === 'month' ? 'calendar' : 'grid'}/></button>
                             <button onClick={() => setShowSettingsModal(true)} className="p-3 bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-2xl shadow-sm"><Icon name="settings"/></button>
                         </div>
