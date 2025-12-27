@@ -2969,7 +2969,7 @@
             };
 
 
-            const [newEvent, setNewEvent] = useState({ title: '', description: '', time: '12:00', durationMin: 60, category: 'Arbeit', subCategory: '', targetCalId: '', recurrence: null, recurrenceEndDate: null, reminders: [], emoji: '', isFocus: false });
+            const [newEvent, setNewEvent] = useState({ title: '', description: '', time: '12:00', durationMin: 60, category: 'Arbeit', subCategory: '', targetCalId: '', recurrence: null, recurrenceEndDate: null, reminders: [], emoji: '', isFocus: false, isAllDay: false });
             const [todos, setTodos] = useState([]);
             const [showTodoModal, setShowTodoModal] = useState(false);
             const [newTodo, setNewTodo] = useState({ title: '', description: '', dueDate: '', assignedTo: '', targetCalId: '', checklist: [], completed: false });
@@ -3528,8 +3528,14 @@
                 if (!targetId) { showToast("Bitte Kalender wählen"); return; }
 
                 const d = new Date(selectedDate);
-                const [h,m] = newEvent.time.split(':');
-                d.setHours(parseInt(h), parseInt(m));
+                
+                // For all-day events, set time to start of day
+                if (newEvent.isAllDay) {
+                    d.setHours(0, 0, 0, 0);
+                } else {
+                    const [h,m] = newEvent.time.split(':');
+                    d.setHours(parseInt(h), parseInt(m));
+                }
                 
                 const coll = isRequest ? 'requests' : 'events';
                 await db.collection('calendars').doc(targetId).collection(coll).add({
@@ -3542,10 +3548,12 @@
                     reminders: newEvent.reminders || [],
                     durationMin: newEvent.durationMin || 60,
                     emoji: newEvent.emoji || '',
-                    isFocus: newEvent.isFocus || false
+                    isFocus: newEvent.isFocus || false,
+                    isAllDay: newEvent.isAllDay || false,
+                    time: newEvent.isAllDay ? '' : newEvent.time
                 });
                 setShowAddEventModal(false);
-                setNewEvent({ ...newEvent, title: '', description: '', reminders: [], recurrence: null, recurrenceEndDate: null, durationMin: 60, emoji: '', isFocus: false });
+                setNewEvent({ ...newEvent, title: '', description: '', reminders: [], recurrence: null, recurrenceEndDate: null, durationMin: 60, emoji: '', isFocus: false, isAllDay: false, time: '12:00' });
                 showToast(isRequest ? "Anfrage gesendet" : "Gespeichert");
             };
 
@@ -3910,6 +3918,63 @@
                 showToast(`✓ Template "${template.name}" angewendet`);
             };
             
+            const saveAsTemplate = async (sourceDate, templateName) => {
+                if (isDemo) return;
+                if (!templateName.trim()) {
+                    showToast('Bitte Template-Namen eingeben');
+                    return;
+                }
+                
+                let targetId = activeCalendarId === ALL_CALENDARS ? newEvent.targetCalId : activeCalendarId;
+                if (!targetId) {
+                    showToast("Bitte Kalender wählen");
+                    return;
+                }
+                
+                const dayEvents = events.filter(e => {
+                    if (e.calendarId !== targetId) return false;
+                    if (e.type === 'shift') return false;
+                    const evDate = e.date instanceof Date ? e.date : (e.date?.toDate ? e.date.toDate() : new Date(e.date));
+                    return evDate.toDateString() === sourceDate.toDateString();
+                });
+                
+                if (dayEvents.length === 0) {
+                    showToast('Keine Events an diesem Tag');
+                    return;
+                }
+                
+                // Convert events to template format
+                const templateEvents = dayEvents.map(ev => {
+                    const evDate = ev.date instanceof Date ? ev.date : ev.date.toDate();
+                    return {
+                        dayOffset: 0,
+                        time: `${evDate.getHours().toString().padStart(2, '0')}:${evDate.getMinutes().toString().padStart(2, '0')}`,
+                        durationMin: ev.durationMin || 60,
+                        title: ev.title,
+                        category: ev.category,
+                        subCategory: ev.subCategory,
+                        emoji: ev.emoji || '',
+                        isFocus: ev.isFocus || false
+                    };
+                });
+                
+                await db.collection('users').doc(user.uid).collection('templates').add({
+                    name: templateName,
+                    events: templateEvents,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                showToast(`✓ Template "${templateName}" gespeichert`);
+            };
+            
+            const deleteTemplate = async (templateId) => {
+                if (isDemo) return;
+                if (!confirm('Template löschen?')) return;
+                
+                await db.collection('users').doc(user.uid).collection('templates').doc(templateId).delete();
+                showToast('✓ Template gelöscht');
+            };
+            
             const copyDaySchedule = async (sourceDate, targetDate) => {
                 if (isDemo) return;
                 let targetId = activeCalendarId === ALL_CALENDARS ? newEvent.targetCalId : activeCalendarId;
@@ -4125,7 +4190,7 @@
                 
                 // Set up the event data for duplication
                 const eventDate = event.date instanceof Date ? event.date : event.date.toDate();
-                const timeStr = `${eventDate.getHours().toString().padStart(2, '0')}:${eventDate.getMinutes().toString().padStart(2, '0')}`;
+                const timeStr = event.isAllDay ? '12:00' : `${eventDate.getHours().toString().padStart(2, '0')}:${eventDate.getMinutes().toString().padStart(2, '0')}`;
                 
                 setNewEvent({
                     title: event.title + ' (Kopie)',
@@ -4139,7 +4204,8 @@
                     recurrenceEndDate: null,
                     reminders: event.reminders || [],
                     emoji: event.emoji || '',
-                    isFocus: event.isFocus || false
+                    isFocus: event.isFocus || false,
+                    isAllDay: event.isAllDay || false
                 });
                 
                 setShowAddEventModal(true);
@@ -5090,13 +5156,19 @@
                                                 <div className="flex-1">
                                                     <div className="flex items-center gap-2">
                                                         <p className="font-bold text-sm text-gray-800 dark:text-white">{ev.title}</p>
+                                                        {ev.isAllDay && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400 font-bold">🗓️ GANZTÄGIG</span>}
                                                         {isRequest && <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 font-bold">ANFRAGE</span>}
                                                         {ev.isFocus && <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 font-bold">🎯 FOKUS</span>}
                                                     </div>
                                                     <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                        <span>{ev.time}</span>
-                                                        <span>•</span>
-                                                        <span>{ev.durationMin || 60}min</span>
+                                                        {!ev.isAllDay && (
+                                                            <>
+                                                                <span>{ev.time}</span>
+                                                                <span>•</span>
+                                                                <span>{ev.durationMin || 60}min</span>
+                                                            </>
+                                                        )}
+                                                        {ev.isAllDay && <span>Ganzer Tag</span>}
                                                         {activeCalendarId === ALL_CALENDARS && <span className={`${color.text} font-bold px-1.5 py-0.5 rounded bg-white/50`}>{cal?.name}</span>}
                                                     </div>
                                                 </div>
@@ -5558,20 +5630,36 @@
                                         </div>
                                     </div>
 
-                                    <input type="time" className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.time} onChange={e => setNewEvent({...newEvent, time: e.target.value})}/>
-                                    
-                                    {/* Duration */}
-                                    <div>
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Dauer (Minuten)</label>
+                                    {/* All-Day Event Toggle */}
+                                    <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-[#1a1a1a] rounded-xl">
                                         <input 
-                                            type="number" 
-                                            min="15" 
-                                            step="15"
-                                            className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 mt-1 font-bold outline-none" 
-                                            value={newEvent.durationMin} 
-                                            onChange={e => setNewEvent({...newEvent, durationMin: parseInt(e.target.value) || 60})}
+                                            type="checkbox" 
+                                            id="allDayToggle"
+                                            className="custom-checkbox"
+                                            checked={newEvent.isAllDay}
+                                            onChange={e => setNewEvent({...newEvent, isAllDay: e.target.checked, time: e.target.checked ? '' : '12:00', durationMin: e.target.checked ? 1440 : 60})}
                                         />
+                                        <label htmlFor="allDayToggle" className="text-sm font-bold dark:text-[#e8ecf5] cursor-pointer select-none">🗓️ Ganztägiges Event</label>
                                     </div>
+
+                                    {!newEvent.isAllDay && (
+                                        <>
+                                            <input type="time" className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 mt-1 font-bold outline-none" value={newEvent.time} onChange={e => setNewEvent({...newEvent, time: e.target.value})}/>
+                                            
+                                            {/* Duration */}
+                                            <div>
+                                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Dauer (Minuten)</label>
+                                                <input 
+                                                    type="number" 
+                                                    min="15" 
+                                                    step="15"
+                                                    className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-2xl p-4 mt-1 font-bold outline-none" 
+                                                    value={newEvent.durationMin} 
+                                                    onChange={e => setNewEvent({...newEvent, durationMin: parseInt(e.target.value) || 60})}
+                                                />
+                                            </div>
+                                        </>
+                                    )}
                                     
                                     {/* Focus Mode & Smart Suggestions */}
                                     <div className="flex gap-2">
@@ -6112,8 +6200,9 @@
                             </div>
                             <div className="p-6 flex-1 overflow-y-auto bg-[#F8F9FA] dark:bg-[#000000]">
                                 <div className="space-y-3">
-                                    {templates.map(template => (
-                                        <div key={template.id} className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-3xl p-5 shadow-sm">
+                                    <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase ml-1 mb-3">Vordefinierte Templates</h3>
+                                    {CALENDAR_TEMPLATES.map(template => (
+                                        <div key={template.name} className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-3xl p-5 shadow-sm">
                                             <h4 className="font-bold text-lg dark:text-[#e8ecf5] mb-2">{template.name}</h4>
                                             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                                                 {template.events.length} Events über {Math.max(...template.events.map(e => e.dayOffset)) + 1} Tage
@@ -6129,6 +6218,78 @@
                                             </button>
                                         </div>
                                     ))}
+                                    
+                                    {/* Custom Templates */}
+                                    {templates.length > 0 && (
+                                        <>
+                                            <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase ml-1 mb-3 mt-6">Meine Templates</h3>
+                                            {templates.map(template => (
+                                                <div key={template.id} className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-3xl p-5 shadow-sm">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <h4 className="font-bold text-lg dark:text-[#e8ecf5]">{template.name}</h4>
+                                                        <button 
+                                                            onClick={() => deleteTemplate(template.id)}
+                                                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                            title="Löschen"
+                                                        >
+                                                            <Icon name="trash" size={16}/>
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                                        {template.events.length} Events
+                                                    </p>
+                                                    <button 
+                                                        onClick={() => {
+                                                            applyTemplate(template, selectedDate);
+                                                            setShowTemplatesModal(false);
+                                                        }}
+                                                        className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold"
+                                                    >
+                                                        Anwenden ab {selectedDate.toLocaleDateString('de-DE')}
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+                                </div>
+                                
+                                {/* Save Day as Template */}
+                                <div className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-3xl p-5 shadow-sm mt-6">
+                                    <h4 className="font-bold text-lg dark:text-[#e8ecf5] mb-4">💾 Tag als Template speichern</h4>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-400 uppercase ml-1">Datum wählen</label>
+                                            <input 
+                                                type="date" 
+                                                id="saveTemplateDate"
+                                                className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-xl p-3 font-bold outline-none mt-1"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-400 uppercase ml-1">Template Name</label>
+                                            <input 
+                                                type="text" 
+                                                id="templateName"
+                                                placeholder="z.B. Mein Arbeitstag"
+                                                className="w-full bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-xl p-3 font-bold outline-none mt-1"
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                const source = document.getElementById('saveTemplateDate').value;
+                                                const name = document.getElementById('templateName').value;
+                                                if (source && name) {
+                                                    saveAsTemplate(new Date(source), name);
+                                                    document.getElementById('templateName').value = '';
+                                                } else {
+                                                    showToast("Bitte Datum und Name eingeben");
+                                                }
+                                            }}
+                                            className="w-full py-3 bg-purple-500 text-white rounded-xl font-bold"
+                                        >
+                                            Als Template speichern
+                                        </button>
+                                    </div>
                                 </div>
                                 
                                 {/* Copy Day Schedule */}
