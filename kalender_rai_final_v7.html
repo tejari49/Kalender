@@ -986,8 +986,10 @@
             };
 
             const closeMedia = () => {
-                if (overlayObjectUrlRef.current) {
-                    URL.revokeObjectURL(overlayObjectUrlRef.current);
+                // Delay URL revocation to prevent premature cleanup
+                const urlToRevoke = overlayObjectUrlRef.current;
+                if (urlToRevoke) {
+                    setTimeout(() => URL.revokeObjectURL(urlToRevoke), 100);
                     overlayObjectUrlRef.current = null;
                 }
                 setMediaOverlay(null);
@@ -1000,6 +1002,14 @@
                 if (!conv) return;
                 const otherUid = getOtherUid(conv);
                 if (!otherUid) return;
+
+                // Check if recipient has already viewed (sender can view unlimited)
+                const isSender = msg.senderId === user.uid;
+                const hasPlayed = (msg.playedBy || []).includes(user.uid);
+                if (!isSender && hasPlayed) {
+                    showToast('Bereits angesehen');
+                    return;
+                }
 
                 setMediaOverlay({ id: msg.id, mine: msg.senderId === user.uid, url: null, loading: true, msg, openedAt: Date.now() });
 
@@ -1022,10 +1032,21 @@
                     const blob = new Blob([bytes], { type: msg.mime || 'image/jpeg' });
                     const objectUrl = URL.createObjectURL(blob);
 
-                    if (overlayObjectUrlRef.current) URL.revokeObjectURL(overlayObjectUrlRef.current);
+                    if (overlayObjectUrlRef.current) {
+                        const oldUrl = overlayObjectUrlRef.current;
+                        setTimeout(() => URL.revokeObjectURL(oldUrl), 100);
+                    }
                     overlayObjectUrlRef.current = objectUrl;
 
                     setMediaOverlay({ id: msg.id, mine: msg.senderId === user.uid, url: objectUrl, loading: false, msg });
+                    
+                    // Mark as played for recipient (not sender)
+                    if (!isSender) {
+                        try {
+                            const msgDoc = convCollection.doc(activeConvId).collection('messages').doc(msg.id);
+                            await msgDoc.update({ playedBy: firebase.firestore.FieldValue.arrayUnion(user.uid) }).catch(()=>{});
+                        } catch (e) {}
+                    }
                 } catch (e) {
                     showToast('Öffnen fehlgeschlagen');
                     closeMedia();
@@ -1708,6 +1729,14 @@
                 const otherUid = getOtherUid(conv);
                 if (!otherUid) return;
 
+                // Check if recipient has already played (sender can play unlimited)
+                const isSender = msg.senderId === user.uid;
+                const hasPlayed = (msg.playedBy || []).includes(user.uid);
+                if (!isSender && hasPlayed) {
+                    showToast('Bereits abgespielt');
+                    return;
+                }
+
                 setPlayBusyId(msg.id);
                 try {
                     let bytes = null;
@@ -1742,7 +1771,10 @@
                     a.onended = () => {
                         try { URL.revokeObjectURL(objectUrl); } catch (e) {}
                         setPlayBusyId(null);
-                        markPlayedAndMaybeDelete(msg);
+                        // Mark as played for recipient (not sender)
+                        if (!isSender) {
+                            markPlayedAndMaybeDelete(msg);
+                        }
                     };
                     
                     a.onerror = (e) => {
@@ -2008,23 +2040,26 @@
                                     </div>
                                 ) : messages.filter(m => !hiddenIds[m.id]).map(m => {
                                     const mine = m.senderId === user.uid;
+                                    const hasPlayed = !mine && (m.playedBy || []).includes(user.uid);
                                     return (
                                         <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                                            <div className={`max-w-[80%] rounded-3xl ${m.kind === 'img' ? 'p-2' : (m.kind === 'aud' ? 'px-3 py-2' : 'px-4 py-3')} shadow-sm ${mine ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-white dark:bg-[#0f0f0f] dark:text-white'}`}>
+                                            <div className={`max-w-[80%] rounded-3xl ${m.kind === 'img' ? 'p-2' : (m.kind === 'aud' ? 'px-3 py-2' : 'px-4 py-3')} shadow-sm ${mine ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-white dark:bg-[#0f0f0f] dark:text-white'} ${hasPlayed ? 'opacity-50' : ''}`}>
                                                 {m.kind === 'img' ? (
-                                                    <button type="button" onClick={() => openMedia(m)} className="block">
+                                                    <button type="button" onClick={() => openMedia(m)} className="block relative" disabled={hasPlayed}>
                                                         {m.thumbDataUrl ? (
-                                                            <img src={m.thumbDataUrl} className="w-44 h-44 object-cover rounded-2xl filter blur-sm" alt="Verschwommene Bildvorschau, Tippen zum Anzeigen" />
+                                                            <img src={m.thumbDataUrl} className={`w-44 h-44 object-cover rounded-2xl ${hasPlayed ? 'filter grayscale' : 'filter blur-sm'}`} alt={hasPlayed ? "Bereits angesehen" : "Verschwommene Bildvorschau, Tippen zum Anzeigen"} />
                                                         ) : (
                                                             <div className="w-44 h-44 rounded-2xl bg-gray-200 dark:bg-[#1a1a1a] flex items-center justify-center">
                                                                 <Icon name="image" />
                                                             </div>
                                                         )}
+                                                        {hasPlayed && <div className="absolute inset-0 flex items-center justify-center text-xs bg-black/50 rounded-2xl text-white">✓ Angesehen</div>}
                                                     </button>
                                                 ) : m.kind === 'aud' ? (
                                                     <button
                                                         type="button"
                                                         onClick={() => playAudio(m)}
+                                                        disabled={hasPlayed}
                                                         className="flex items-center gap-3"
                                                         title="Audio abspielen"
                                                     >
@@ -2058,7 +2093,7 @@
                                     );
                                 })}
                             </div>
-                            <div className="p-4 border-t border-[#e2e8f0] dark:border-[#1f1f1f] bg-[#f8f9fb] dark:bg-[#000000]">
+                            <div className="p-4 pb-safe border-t border-[#e2e8f0] dark:border-[#1f1f1f] bg-[#f8f9fb] dark:bg-[#000000]">
                                 <div className="flex gap-2 items-center">
                                     <input
                                         ref={libraryInputRef}
@@ -2108,6 +2143,11 @@
                                         <Icon name={recOn ? 'stop' : 'mic'} />
                                     </button>
                                     <input
+                                        ref={(el) => {
+                                            if (el) {
+                                                el.onfocus = () => setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 300);
+                                            }
+                                        }}
                                         className="flex-1 bg-gray-100 dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-2xl px-4 py-3 text-sm font-bold outline-none"
                                         placeholder="Eintrag…"
                                         value={draft}
