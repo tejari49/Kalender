@@ -103,6 +103,15 @@
             50%{ opacity:0.45; transform: scale(1.04); }
         }
         
+        /* Pulse animation for "Jump to today" button */
+        .pulse-today {
+            animation: pulseToday 0.5s ease-in-out 4;
+        }
+        @keyframes pulseToday {
+            0%, 100% { opacity: 0; transform: scale(0.98); }
+            50% { opacity: 0.6; transform: scale(1.04); }
+        }
+        
         /* Theme Palettes - Refined for Light (elegant) and Dark (AMOLED) */
         :root {
             /* Light Theme - Elegant white with soft contrast */
@@ -117,8 +126,21 @@
             --shadow: rgba(0, 0, 0, 0.05);
         }
         
-        :root.pastel {
-            /* Pastel Theme - Secondary option */
+        :root.palette-vibrant {
+            /* Vibrant Theme - Bold, saturated colors */
+            --primary: #ff6b35;
+            --primary-light: #fff5f2;
+            --accent: #f7931e;
+            --bg: #fffbf5;
+            --card: #ffffff;
+            --text: #1a1a1a;
+            --text-secondary: #d9534f;
+            --border: #ffcdb2;
+            --shadow: rgba(255, 107, 53, 0.12);
+        }
+        
+        :root.palette-pastel {
+            /* Pastel Theme - Soft, gentle colors */
             --primary: #8b5cf6;
             --primary-light: #faf5ff;
             --accent: #a78bfa;
@@ -130,17 +152,17 @@
             --shadow: rgba(139, 92, 246, 0.08);
         }
         
-        :root.high-contrast {
-            /* High-contrast Theme - Secondary option */
-            --primary: #000000;
-            --primary-light: #ffffff;
-            --accent: #0066cc;
-            --bg: #ffffff;
-            --card: #f5f5f5;
-            --text: #000000;
-            --text-secondary: #333333;
-            --border: #cccccc;
-            --shadow: rgba(0, 0, 0, 0.15);
+        :root.palette-neutral {
+            /* Neutral Theme - Clean, monochrome */
+            --primary: #6b7280;
+            --primary-light: #f9fafb;
+            --accent: #9ca3af;
+            --bg: #f9fafb;
+            --card: #ffffff;
+            --text: #111827;
+            --text-secondary: #6b7280;
+            --border: #e5e7eb;
+            --shadow: rgba(0, 0, 0, 0.06);
         }
         
         .dark:root {
@@ -156,12 +178,25 @@
             --shadow: rgba(255, 255, 255, 0.03);
         }
         
-        .dark:root.pastel {
-            /* Dark Pastel - Secondary option */
+        .dark:root.palette-vibrant {
+            /* Dark Vibrant - Bold colors on dark */
+            --primary: #ff8c61;
+            --primary-light: #1a0f0a;
+            --accent: #ffb347;
+            --bg: #000000;
+            --card: #1a0f0a;
+            --text: #ffebe0;
+            --text-secondary: #ffb4a1;
+            --border: #331a0f;
+            --shadow: rgba(255, 140, 97, 0.08);
+        }
+        
+        .dark:root.palette-pastel {
+            /* Dark Pastel - Soft colors on dark */
             --primary: #a78bfa;
             --primary-light: #1a1a1a;
             --accent: #8b5cf6;
-            --bg: #0a0a0a;
+            --bg: #000000;
             --card: #1a1a1a;
             --text: #e9d5ff;
             --text-secondary: #c4b5fd;
@@ -169,17 +204,17 @@
             --shadow: rgba(167, 139, 250, 0.05);
         }
         
-        .dark:root.high-contrast {
-            /* Dark High-contrast - Secondary option */
-            --primary: #ffffff;
+        .dark:root.palette-neutral {
+            /* Dark Neutral - Clean monochrome on dark */
+            --primary: #9ca3af;
             --primary-light: #000000;
-            --accent: #00aaff;
+            --accent: #6b7280;
             --bg: #000000;
-            --card: #1a1a1a;
-            --text: #ffffff;
-            --text-secondary: #cccccc;
-            --border: #333333;
-            --shadow: rgba(255, 255, 255, 0.08);
+            --card: #0f0f0f;
+            --text: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --border: #1f2937;
+            --shadow: rgba(255, 255, 255, 0.04);
         }
         
         /* Drag and Drop - Updated for new themes */
@@ -2821,6 +2856,7 @@
             const [showExportMenu, setShowExportMenu] = useState(false);
             const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
             const [availabilityProposal, setAvailabilityProposal] = useState({ title: '', description: '', dates: [], votes: {}, targetCalId: '', deadline: '', reminders: false, attachments: [] });
+            const [pulseToday, setPulseToday] = useState(false);
             
             // New Features
             const [searchQuery, setSearchQuery] = useState('');
@@ -5070,7 +5106,8 @@
                                 {showQuickActionsMenu && (
                                     <div className="absolute top-14 right-0 bg-[#ffffff] dark:bg-[#0f0f0f] rounded-2xl shadow-xl border border-[#e2e8f0] dark:border-[#1f1f1f] p-2 w-64 z-20 slide-up">
                                         <h3 className="font-bold text-sm mb-2 px-2 dark:text-[#e8ecf5]">Schnellaktionen</h3>
-                                        <button onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); setShowQuickActionsMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1a1a1a] dark:text-[#e8ecf5] text-sm flex items-center gap-2">
+                                        <button onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); setShowQuickActionsMenu(false); setPulseToday(true); setTimeout(() => setPulseToday(false), 2000); }} className={`w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1a1a1a] dark:text-[#e8ecf5] text-sm flex items-center gap-2 ${pulseToday ? 'relative' : ''}`}>
+                                            {pulseToday && <span className="pulse-today absolute inset-0 rounded-xl bg-blue-400 dark:bg-blue-500 pointer-events-none"></span>}
                                             <Icon name="calendar" size={16}/> Zu heute springen
                                         </button>
                                         <button onClick={findNextFreeSlot} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1a1a1a] dark:text-[#e8ecf5] text-sm flex items-center gap-2">
@@ -5566,8 +5603,9 @@
                                                 onChange={e => setThemePalette(e.target.value)}
                                             >
                                                 <option value="default">Standard (Elegant)</option>
-                                                <option value="pastel">Pastel</option>
-                                                <option value="high-contrast">High Contrast</option>
+                                                <option value="vibrant">Knallig (Vibrant)</option>
+                                                <option value="pastel">Zart (Pastel)</option>
+                                                <option value="neutral">Neutral</option>
                                             </select>
                                         </div>
                                     </div>
@@ -5617,7 +5655,7 @@
                                                     <div className="mb-4 bg-gray-50 dark:bg-[#1a1a1a] p-4 rounded-2xl">
                                                         <div className="flex items-center justify-between mb-2">
                                                             <span className="text-sm font-bold dark:text-[#e8ecf5]">Mitglieder</span>
-                                                            <span className="text-[10px] text-gray-400">🔒 = Chat verbunden</span>
+                                                            <span className="text-[10px] text-gray-400">🔒</span>
                                                         </div>
                                                         <div className="space-y-2 mb-3">
                                                             {cal.members.map(m => {
