@@ -5133,8 +5133,13 @@
                                         <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Erinnerungen</label>
                                         <div className="space-y-2 mt-2">
                                             {[
+                                                { value: 0, label: 'Bei Terminbeginn' },
+                                                { value: 15, label: '15 Minuten vorher' },
+                                                { value: 30, label: '30 Minuten vorher' },
                                                 { value: 60, label: '1 Stunde vorher' },
+                                                { value: 120, label: '2 Stunden vorher' },
                                                 { value: 1440, label: '1 Tag vorher' },
+                                                { value: 2880, label: '2 Tage vorher' },
                                                 { value: 10080, label: '1 Woche vorher' }
                                             ].map(reminder => (
                                                 <div key={reminder.value} className="flex items-center gap-3 bg-gray-50 dark:bg-[#1a1a1a] p-3 rounded-xl">
