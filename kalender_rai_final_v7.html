@@ -2951,11 +2951,14 @@
                 }
                 
                 // Apply theme
-                document.body.className = `transition-colors duration-300 ${effectiveDarkMode ? 'bg-[#121212] text-white dark' : 'bg-[#F8F9FA] text-[#1D1D1F]'}`;
+                document.body.className = `transition-colors duration-300 ${effectiveDarkMode ? 'bg-[#000000] text-[#e8ecf5] dark' : 'bg-[#f8f9fb] text-[#1e293b]'}`;
                 
                 // Apply palette
                 const root = document.documentElement;
-                root.className = themePalette !== 'default' ? themePalette : '';
+                root.className = '';
+                if (themePalette && themePalette !== 'default') {
+                    root.classList.add(`palette-${themePalette}`);
+                }
                 if (effectiveDarkMode) {
                     root.classList.add('dark');
                 }
@@ -4827,9 +4830,9 @@
                                                 value={themePalette}
                                                 onChange={e => setThemePalette(e.target.value)}
                                             >
-                                                <option value="default">Standard</option>
-                                                <option value="nord">Nord</option>
-                                                <option value="dracula">Dracula</option>
+                                                <option value="default">Standard (Elegant)</option>
+                                                <option value="pastel">Pastel</option>
+                                                <option value="high-contrast">High Contrast</option>
                                             </select>
                                         </div>
                                     </div>
