@@ -3403,9 +3403,30 @@
             const handleDeleteEvent = async (ev, isReq) => {
                  if(isDemo) return;
                  if(!confirm(isReq ? "Anfrage löschen?" : "Termin löschen?")) return;
-                 const coll = isReq ? 'requests' : 'events';
-                 await db.collection('calendars').doc(ev.calendarId || activeCalendarId).collection(coll).doc(ev.id).delete();
-                 showToast(isReq ? "Anfrage gelöscht" : "Termin gelöscht");
+                 
+                 try {
+                     if (!db) {
+                         showToast('Datenbank nicht verfügbar');
+                         return;
+                     }
+                     if (!ev || !ev.id) {
+                         showToast('Ungültiges Event');
+                         return;
+                     }
+                     
+                     const calId = ev.calendarId || activeCalendarId;
+                     if (!calId) {
+                         showToast('Kalender nicht gefunden');
+                         return;
+                     }
+                     
+                     const coll = isReq ? 'requests' : 'events';
+                     await db.collection('calendars').doc(calId).collection(coll).doc(ev.id).delete();
+                     showToast(isReq ? "Anfrage gelöscht" : "Termin gelöscht");
+                 } catch (err) {
+                     console.error('Delete event error:', err);
+                     showToast('Fehler beim Löschen: ' + (err.message || 'Unbekannter Fehler'));
+                 }
             };
 
             const handleAcceptRequest = async (req) => {
@@ -4659,6 +4680,9 @@
                                 const isRequest = requests.some(r => r.id === ev.id);
                                 const isMyRequest = isRequest && ev.createdBy === user.uid;
                                 const isSelected = selectedEventIds.includes(ev.id);
+                                // Check if user can delete: own request/event, OR admin/editor of calendar
+                                const myRole = cal?.members?.find(m => m.uid === user?.uid)?.role;
+                                const canDelete = isMyRequest || !isRequest || myRole === ROLES.ADMIN || myRole === ROLES.EDITOR;
                                 return (
                                     <div 
                                         key={ev.id} 
@@ -4710,7 +4734,7 @@
                                                                     <button onClick={(e) => { e.stopPropagation(); handleDeclineRequest(ev.id); }} className="flex gap-1 items-center text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"><Icon name="x" size={12}/> Ablehnen</button>
                                                                 </>
                                                             )}
-                                                            {!isDemo && (isMyRequest || !isRequest) && <button onClick={(e) => { e.stopPropagation(); handleDeleteEvent(ev, isRequest); }} className="flex gap-1 items-center text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"><Icon name="trash" size={12}/> Löschen</button>}
+                                                            {!isDemo && canDelete && <button onClick={(e) => { e.stopPropagation(); handleDeleteEvent(ev, isRequest); }} className="flex gap-1 items-center text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"><Icon name="trash" size={12}/> Löschen</button>}
                                                         </div>
                                                     </div>
                                                 </div>
