@@ -269,6 +269,7 @@
                 layers: <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />,
                 grid: <><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></>,
                 filter: <><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></>,
+                zap: <><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></>,
                 tag: <><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></>,
                 briefcase: <><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></>
             };
@@ -2356,6 +2357,53 @@
                 }
                 setSelectedMonth(newDate);
             };
+            
+            const exportTimeReport = () => {
+                try {
+                    const reportData = {
+                        exportDate: new Date().toISOString(),
+                        period: getViewLabel(),
+                        viewType,
+                        entries: []
+                    };
+                    
+                    let totalDuration = 0;
+                    
+                    filteredEntries.forEach(entry => {
+                        const clockInDate = entry.clockIn?.toDate ? entry.clockIn.toDate() : new Date(entry.clockIn);
+                        const clockOutDate = entry.clockOut?.toDate ? entry.clockOut.toDate() : null;
+                        const durationMs = entry.durationMs || 0;
+                        
+                        totalDuration += durationMs;
+                        
+                        reportData.entries.push({
+                            date: clockInDate.toLocaleDateString('de-DE'),
+                            clockIn: clockInDate.toLocaleTimeString('de-DE'),
+                            clockOut: clockOutDate ? clockOutDate.toLocaleTimeString('de-DE') : 'Aktiv',
+                            duration: formatDuration(durationMs),
+                            notes: entry.notes || ''
+                        });
+                    });
+                    
+                    reportData.totalHours = (totalDuration / 3600000).toFixed(2);
+                    reportData.totalDuration = formatDuration(totalDuration);
+                    reportData.entryCount = filteredEntries.length;
+                    
+                    const jsonStr = JSON.stringify(reportData, null, 2);
+                    const blob = new Blob([jsonStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `zeiterfassung-${viewType}-${new Date().toISOString().split('T')[0]}.json`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    
+                    showToast(`✓ Zeiterfassung exportiert (${reportData.entryCount} Einträge, ${reportData.totalHours}h)`);
+                } catch (err) {
+                    console.error('Time report export error:', err);
+                    showToast('Fehler beim Export');
+                }
+            };
 
             const formatTime = (timestamp) => {
                 if (!timestamp) return '--:--';
@@ -2433,9 +2481,14 @@
                     <div className="bg-[#ffffff] dark:bg-[#0f0f0f] rounded-[32px] w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl slide-up">
                         <div className="p-6 border-b border-[#e2e8f0] dark:border-[#1f1f1f] flex justify-between items-center">
                             <h2 className="text-2xl font-bold dark:text-white">⏱️ Zeiterfassung</h2>
-                            <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-full">
-                                <Icon name="x" size={24}/>
-                            </button>
+                            <div className="flex gap-2">
+                                <button onClick={exportTimeReport} className="p-2 bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-black rounded-full transition-colors" title="Export">
+                                    <Icon name="layers" size={20}/>
+                                </button>
+                                <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-[#1a1a1a] dark:text-[#e8ecf5] rounded-full">
+                                    <Icon name="x" size={24}/>
+                                </button>
+                            </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-6">
@@ -2713,6 +2766,7 @@
             const [searchQuery, setSearchQuery] = useState('');
             const [showSearchPanel, setShowSearchPanel] = useState(false);
             const [showFilterMenu, setShowFilterMenu] = useState(false);
+            const [showQuickActionsMenu, setShowQuickActionsMenu] = useState(false);
             const [calendarView, setCalendarView] = useState('month'); // 'month' or 'week'
             const [showBackupModal, setShowBackupModal] = useState(false);
             
@@ -4012,6 +4066,172 @@
                 showToast(`✓ ${selectedEventIds.length} Events verschoben`);
             };
 
+            // QUICK ACTIONS
+            const findNextFreeSlot = () => {
+                // Find next free 1-hour slot starting from now
+                const now = new Date();
+                const today = new Date(now);
+                today.setHours(8, 0, 0, 0); // Start from 8 AM
+                
+                // Get all events for the next 7 days
+                const endDate = new Date(now);
+                endDate.setDate(endDate.getDate() + 7);
+                
+                // Check each hour from 8 AM to 6 PM for the next 7 days
+                for (let d = 0; d < 7; d++) {
+                    const checkDate = new Date(today);
+                    checkDate.setDate(checkDate.getDate() + d);
+                    
+                    for (let hour = 8; hour < 18; hour++) {
+                        const slotStart = new Date(checkDate);
+                        slotStart.setHours(hour, 0, 0, 0);
+                        
+                        // Skip past slots
+                        if (slotStart < now) continue;
+                        
+                        const slotEnd = new Date(slotStart);
+                        slotEnd.setHours(hour + 1);
+                        
+                        // Check if this slot is free
+                        const hasConflict = events.some(ev => {
+                            if (!ev.date || ev.type === 'shift') return false;
+                            const evDate = ev.date instanceof Date ? ev.date : ev.date.toDate();
+                            const evEnd = new Date(evDate);
+                            evEnd.setMinutes(evEnd.getMinutes() + (ev.durationMin || 60));
+                            
+                            return (evDate < slotEnd && evEnd > slotStart);
+                        });
+                        
+                        if (!hasConflict) {
+                            setSelectedDate(checkDate);
+                            setCurrentDate(checkDate);
+                            showToast(`✓ Freier Slot gefunden: ${slotStart.toLocaleDateString('de-DE')} um ${hour}:00 Uhr`);
+                            setShowQuickActionsMenu(false);
+                            return;
+                        }
+                    }
+                }
+                
+                showToast('Keine freien Slots in den nächsten 7 Tagen gefunden');
+                setShowQuickActionsMenu(false);
+            };
+            
+            const duplicateEvent = (eventId) => {
+                const event = events.find(e => e && e.id === eventId);
+                if (!event || !event.date) {
+                    showToast('Event nicht gefunden');
+                    return;
+                }
+                
+                // Set up the event data for duplication
+                const eventDate = event.date instanceof Date ? event.date : event.date.toDate();
+                const timeStr = `${eventDate.getHours().toString().padStart(2, '0')}:${eventDate.getMinutes().toString().padStart(2, '0')}`;
+                
+                setNewEvent({
+                    title: event.title + ' (Kopie)',
+                    description: event.description || '',
+                    time: timeStr,
+                    durationMin: event.durationMin || 60,
+                    category: event.category || 'Arbeit',
+                    subCategory: event.subCategory || '',
+                    targetCalId: event.calendarId || activeCalendarId,
+                    recurrence: null,
+                    recurrenceEndDate: null,
+                    reminders: event.reminders || [],
+                    emoji: event.emoji || '',
+                    isFocus: event.isFocus || false
+                });
+                
+                setShowAddEventModal(true);
+                setShowQuickActionsMenu(false);
+                showToast('Event zum Duplizieren geöffnet');
+            };
+            
+            const exportCalendarJSON = async () => {
+                try {
+                    const exportData = {
+                        version: '1.0',
+                        exportDate: new Date().toISOString(),
+                        calendars: [],
+                        events: [],
+                        todos: [],
+                        memos: []
+                    };
+                    
+                    // Export calendars
+                    myCalendars.forEach(cal => {
+                        exportData.calendars.push({
+                            id: cal.id,
+                            name: cal.name,
+                            color: cal.color,
+                            members: cal.members,
+                            shiftEnabled: cal.shiftEnabled || false,
+                            shiftDefinitions: cal.shiftDefinitions || []
+                        });
+                    });
+                    
+                    // Export events
+                    events.forEach(ev => {
+                        if (ev.type === 'shift') return; // Skip shifts
+                        const evDate = ev.date instanceof Date ? ev.date : ev.date?.toDate?.();
+                        exportData.events.push({
+                            id: ev.id,
+                            calendarId: ev.calendarId,
+                            title: ev.title,
+                            description: ev.description,
+                            date: evDate ? evDate.toISOString() : null,
+                            time: ev.time,
+                            durationMin: ev.durationMin,
+                            category: ev.category,
+                            subCategory: ev.subCategory,
+                            recurrence: ev.recurrence,
+                            reminders: ev.reminders,
+                            emoji: ev.emoji,
+                            isFocus: ev.isFocus,
+                            createdBy: ev.createdBy,
+                            createdByName: ev.createdByName
+                        });
+                    });
+                    
+                    // Export todos
+                    todos.forEach(todo => {
+                        exportData.todos.push({
+                            id: todo.id,
+                            title: todo.title,
+                            description: todo.description,
+                            done: todo.done,
+                            priority: todo.priority,
+                            createdAt: todo.createdAt?.toDate?.()?.toISOString?.() || null
+                        });
+                    });
+                    
+                    // Export memos
+                    memos.forEach(memo => {
+                        exportData.memos.push({
+                            id: memo.id,
+                            title: memo.title,
+                            content: memo.content,
+                            createdAt: memo.createdAt?.toDate?.()?.toISOString?.() || null
+                        });
+                    });
+                    
+                    const jsonStr = JSON.stringify(exportData, null, 2);
+                    const blob = new Blob([jsonStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `kalender-backup-${new Date().toISOString().split('T')[0]}.json`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    
+                    showToast('✓ Kalender als JSON exportiert');
+                    setShowQuickActionsMenu(false);
+                } catch (err) {
+                    console.error('JSON export error:', err);
+                    showToast('Fehler beim JSON Export');
+                }
+            };
+
             // RECURRENCE HELPER
             const getRecurringEvents = (event, targetDate) => {
                 if (!event.recurrence) return [];
@@ -4548,6 +4768,26 @@
                         </div>
                         <div className="flex gap-2">
                             <button onClick={() => setCurrentDate(new Date())} className={`px-3 bg-white dark:bg-[#0f0f0f] rounded-2xl shadow-sm font-bold text-xs uppercase dark:text-[#e8ecf5] ${todayBlinkToken ? "blink-attn" : ""}`}>Heute</button>
+                            <div className="relative">
+                                <button onClick={() => setShowQuickActionsMenu(!showQuickActionsMenu)} className="p-3 bg-[#2563eb] hover:bg-[#1d4ed8] dark:bg-[#4da3ff] dark:hover:bg-[#3b8fe7] text-white dark:text-black rounded-2xl shadow-sm transition-colors" title="Schnellaktionen">
+                                    <Icon name="zap"/>
+                                </button>
+                                {showQuickActionsMenu && (
+                                    <div className="absolute top-14 right-0 bg-[#ffffff] dark:bg-[#0f0f0f] rounded-2xl shadow-xl border border-[#e2e8f0] dark:border-[#1f1f1f] p-2 w-64 z-20 slide-up">
+                                        <h3 className="font-bold text-sm mb-2 px-2 dark:text-[#e8ecf5]">Schnellaktionen</h3>
+                                        <button onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); setShowQuickActionsMenu(false); }} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1a1a1a] dark:text-[#e8ecf5] text-sm flex items-center gap-2">
+                                            <Icon name="calendar" size={16}/> Zu heute springen
+                                        </button>
+                                        <button onClick={findNextFreeSlot} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1a1a1a] dark:text-[#e8ecf5] text-sm flex items-center gap-2">
+                                            <Icon name="search" size={16}/> Nächster freier Slot
+                                        </button>
+                                        <div className="border-t border-[#e2e8f0] dark:border-[#1f1f1f] my-1"></div>
+                                        <button onClick={exportCalendarJSON} className="w-full text-left px-4 py-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1a1a1a] dark:text-[#e8ecf5] text-sm flex items-center gap-2">
+                                            <Icon name="layers" size={16}/> JSON Export
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                             <button onClick={() => setShowSearchPanel(true)} className="p-3 bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5] rounded-2xl shadow-sm" title="Suchen"><Icon name="search"/></button>
                             <div className="relative">
                                 <button onClick={() => setShowFilterMenu(!showFilterMenu)} className={`p-3 ${eventFilters.showMyEventsOnly ? 'bg-[#2563eb] text-white dark:bg-[#4da3ff] dark:text-black' : 'bg-[#ffffff] dark:bg-[#0f0f0f] dark:text-[#e8ecf5]'} rounded-2xl shadow-sm`} title="Filter"><Icon name="filter"/></button>
@@ -4876,6 +5116,7 @@
                                                                     <button onClick={(e) => { e.stopPropagation(); handleDeclineRequest(ev.id); }} className="flex gap-1 items-center text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"><Icon name="x" size={12}/> Ablehnen</button>
                                                                 </>
                                                             )}
+                                                            {!isDemo && !isRequest && <button onClick={(e) => { e.stopPropagation(); duplicateEvent(ev.id); }} className="flex gap-1 items-center text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded"><Icon name="layers" size={12}/> Duplizieren</button>}
                                                             {!isDemo && canDelete && <button onClick={(e) => { e.stopPropagation(); handleDeleteEvent(ev, isRequest); }} className="flex gap-1 items-center text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded"><Icon name="trash" size={12}/> Löschen</button>}
                                                         </div>
                                                     </div>
